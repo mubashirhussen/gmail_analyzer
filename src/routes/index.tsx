@@ -126,6 +126,7 @@ function Dashboard() {
   const [sender, setSender] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<EmailAnalysis | null>(null);
@@ -143,13 +144,47 @@ function Dashboard() {
     return { scanned: history.length, threats, links };
   }, [history]);
 
+  async function onFilesPicked(files: FileList | null) {
+    if (!files) return;
+    setError(null);
+    const next: Attachment[] = [];
+    for (const f of Array.from(files)) {
+      if (f.size > MAX_FILE_BYTES) {
+        setError(`"${f.name}" is larger than 6 MB.`);
+        continue;
+      }
+      try {
+        next.push(await fileToAttachment(f));
+      } catch {
+        setError(`Could not read "${f.name}".`);
+      }
+    }
+    setAttachments((prev) => [...prev, ...next].slice(0, 5));
+  }
+
+  function removeAttachment(i: number) {
+    setAttachments((prev) => prev.filter((_, idx) => idx !== i));
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
     setResult(null);
     try {
-      const res = await analyze({ data: { sender, subject, body } });
+      const res = await analyze({
+        data: {
+          sender,
+          subject,
+          body,
+          attachments: attachments.map(({ name, mimeType, dataBase64, textContent }) => ({
+            name,
+            mimeType,
+            dataBase64,
+            textContent,
+          })),
+        },
+      });
       setResult(res);
       setHistory((h) => [res, ...h].slice(0, 25));
     } catch (err) {
@@ -165,6 +200,7 @@ function Dashboard() {
     setSubject(SAMPLE.subject);
     setBody(SAMPLE.body);
   }
+
 
   return (
     <main className="min-h-screen text-foreground">
