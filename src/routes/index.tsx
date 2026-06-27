@@ -15,8 +15,48 @@ import {
   Sparkles,
   Send,
   TrendingUp,
+  Paperclip,
+  X,
+  FileText,
+  Image as ImageIcon,
 } from "lucide-react";
 import { analyzeEmail, type EmailAnalysis } from "@/lib/analyze-email.functions";
+
+type Attachment = {
+  name: string;
+  mimeType: string;
+  dataBase64: string;
+  textContent?: string;
+  size: number;
+};
+
+const MAX_FILE_BYTES = 6 * 1024 * 1024;
+const TEXT_MIME_PREFIXES = ["text/", "application/json", "application/xml", "application/csv"];
+
+async function fileToAttachment(file: File): Promise<Attachment> {
+  const buf = await file.arrayBuffer();
+  let binary = "";
+  const bytes = new Uint8Array(buf);
+  for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+  const dataBase64 = btoa(binary);
+  const att: Attachment = {
+    name: file.name,
+    mimeType: file.type || "application/octet-stream",
+    dataBase64,
+    size: file.size,
+  };
+  const isTextLike =
+    TEXT_MIME_PREFIXES.some((p) => att.mimeType.startsWith(p)) ||
+    /\.(txt|md|csv|json|log|eml|html?)$/i.test(file.name);
+  if (isTextLike) {
+    try {
+      att.textContent = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+    } catch {
+      /* keep base64 only */
+    }
+  }
+  return att;
+}
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -86,6 +126,7 @@ function Dashboard() {
   const [sender, setSender] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<EmailAnalysis | null>(null);
@@ -103,13 +144,47 @@ function Dashboard() {
     return { scanned: history.length, threats, links };
   }, [history]);
 
+  async function onFilesPicked(files: FileList | null) {
+    if (!files) return;
+    setError(null);
+    const next: Attachment[] = [];
+    for (const f of Array.from(files)) {
+      if (f.size > MAX_FILE_BYTES) {
+        setError(`"${f.name}" is larger than 6 MB.`);
+        continue;
+      }
+      try {
+        next.push(await fileToAttachment(f));
+      } catch {
+        setError(`Could not read "${f.name}".`);
+      }
+    }
+    setAttachments((prev) => [...prev, ...next].slice(0, 5));
+  }
+
+  function removeAttachment(i: number) {
+    setAttachments((prev) => prev.filter((_, idx) => idx !== i));
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
     setResult(null);
     try {
-      const res = await analyze({ data: { sender, subject, body } });
+      const res = await analyze({
+        data: {
+          sender,
+          subject,
+          body,
+          attachments: attachments.map(({ name, mimeType, dataBase64, textContent }) => ({
+            name,
+            mimeType,
+            dataBase64,
+            textContent,
+          })),
+        },
+      });
       setResult(res);
       setHistory((h) => [res, ...h].slice(0, 25));
     } catch (err) {
@@ -125,6 +200,7 @@ function Dashboard() {
     setSubject(SAMPLE.subject);
     setBody(SAMPLE.body);
   }
+
 
   return (
     <main className="min-h-screen text-foreground">
@@ -211,13 +287,66 @@ function Dashboard() {
               <div>
                 <label className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono">Email body</label>
                 <textarea
-                  required
                   value={body}
                   onChange={(e) => setBody(e.target.value)}
                   rows={11}
-                  placeholder="Paste the full email content here…"
+                  placeholder="Paste the full email content here… (or attach a screenshot / PDF below)"
                   className="mt-1 w-full rounded-md bg-input/60 border border-border px-3 py-2.5 text-sm font-mono leading-relaxed outline-none focus:ring-2 focus:ring-ring/60 focus:border-ring resize-y"
                 />
+              </div>
+
+              {/* Attachments */}
+              <div>
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono">
+                    Attachments <span className="opacity-60">(images, PDF, docs · up to 5 · 6 MB each)</span>
+                  </label>
+                  <label className="inline-flex items-center gap-1.5 text-xs font-mono px-2.5 py-1 rounded-md border border-border hover:bg-accent transition cursor-pointer">
+                    <Paperclip className="h-3.5 w-3.5" />
+                    Attach
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*,application/pdf,.txt,.md,.csv,.json,.log,.eml,.html,.htm,.doc,.docx"
+                      className="hidden"
+                      onChange={(e) => {
+                        onFilesPicked(e.target.files);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                </div>
+                {attachments.length > 0 && (
+                  <ul className="mt-2 flex flex-wrap gap-2">
+                    {attachments.map((a, i) => {
+                      const isImg = a.mimeType.startsWith("image/");
+                      return (
+                        <li
+                          key={i}
+                          className="inline-flex items-center gap-2 rounded-md border border-border bg-card/60 pl-2 pr-1 py-1 text-xs"
+                        >
+                          {isImg ? (
+                            <ImageIcon className="h-3.5 w-3.5" style={{ color: "var(--safe)" }} />
+                          ) : (
+                            <FileText className="h-3.5 w-3.5" style={{ color: "var(--warn)" }} />
+                          )}
+                          <span className="font-mono max-w-[160px] truncate">{a.name}</span>
+                          <span className="text-[10px] text-muted-foreground font-mono">
+                            {(a.size / 1024).toFixed(0)} KB
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => removeAttachment(i)}
+                            className="ml-0.5 p-0.5 rounded hover:bg-accent"
+                            aria-label={`Remove ${a.name}`}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
               </div>
 
               {error && (
@@ -228,13 +357,14 @@ function Dashboard() {
 
               <button
                 type="submit"
-                disabled={loading || !body.trim()}
+                disabled={loading || (!body.trim() && attachments.length === 0)}
                 className="w-full inline-flex items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ background: "var(--safe)", color: "var(--primary-foreground)", boxShadow: "var(--shadow-glow-safe)" }}
               >
                 {loading ? (<><Loader2 className="h-4 w-4 animate-spin" /> Scanning…</>) : (<><Send className="h-4 w-4" /> Run Threat Scan</>)}
               </button>
             </form>
+
           </div>
 
           {result && <AnalysisReport result={result} />}
