@@ -287,13 +287,66 @@ function Dashboard() {
               <div>
                 <label className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono">Email body</label>
                 <textarea
-                  required
                   value={body}
                   onChange={(e) => setBody(e.target.value)}
                   rows={11}
-                  placeholder="Paste the full email content here…"
+                  placeholder="Paste the full email content here… (or attach a screenshot / PDF below)"
                   className="mt-1 w-full rounded-md bg-input/60 border border-border px-3 py-2.5 text-sm font-mono leading-relaxed outline-none focus:ring-2 focus:ring-ring/60 focus:border-ring resize-y"
                 />
+              </div>
+
+              {/* Attachments */}
+              <div>
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono">
+                    Attachments <span className="opacity-60">(images, PDF, docs · up to 5 · 6 MB each)</span>
+                  </label>
+                  <label className="inline-flex items-center gap-1.5 text-xs font-mono px-2.5 py-1 rounded-md border border-border hover:bg-accent transition cursor-pointer">
+                    <Paperclip className="h-3.5 w-3.5" />
+                    Attach
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*,application/pdf,.txt,.md,.csv,.json,.log,.eml,.html,.htm,.doc,.docx"
+                      className="hidden"
+                      onChange={(e) => {
+                        onFilesPicked(e.target.files);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                </div>
+                {attachments.length > 0 && (
+                  <ul className="mt-2 flex flex-wrap gap-2">
+                    {attachments.map((a, i) => {
+                      const isImg = a.mimeType.startsWith("image/");
+                      return (
+                        <li
+                          key={i}
+                          className="inline-flex items-center gap-2 rounded-md border border-border bg-card/60 pl-2 pr-1 py-1 text-xs"
+                        >
+                          {isImg ? (
+                            <ImageIcon className="h-3.5 w-3.5" style={{ color: "var(--safe)" }} />
+                          ) : (
+                            <FileText className="h-3.5 w-3.5" style={{ color: "var(--warn)" }} />
+                          )}
+                          <span className="font-mono max-w-[160px] truncate">{a.name}</span>
+                          <span className="text-[10px] text-muted-foreground font-mono">
+                            {(a.size / 1024).toFixed(0)} KB
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => removeAttachment(i)}
+                            className="ml-0.5 p-0.5 rounded hover:bg-accent"
+                            aria-label={`Remove ${a.name}`}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
               </div>
 
               {error && (
@@ -304,13 +357,14 @@ function Dashboard() {
 
               <button
                 type="submit"
-                disabled={loading || !body.trim()}
+                disabled={loading || (!body.trim() && attachments.length === 0)}
                 className="w-full inline-flex items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ background: "var(--safe)", color: "var(--primary-foreground)", boxShadow: "var(--shadow-glow-safe)" }}
               >
                 {loading ? (<><Loader2 className="h-4 w-4 animate-spin" /> Scanning…</>) : (<><Send className="h-4 w-4" /> Run Threat Scan</>)}
               </button>
             </form>
+
           </div>
 
           {result && <AnalysisReport result={result} />}
