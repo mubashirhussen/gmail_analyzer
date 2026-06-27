@@ -15,8 +15,48 @@ import {
   Sparkles,
   Send,
   TrendingUp,
+  Paperclip,
+  X,
+  FileText,
+  Image as ImageIcon,
 } from "lucide-react";
 import { analyzeEmail, type EmailAnalysis } from "@/lib/analyze-email.functions";
+
+type Attachment = {
+  name: string;
+  mimeType: string;
+  dataBase64: string;
+  textContent?: string;
+  size: number;
+};
+
+const MAX_FILE_BYTES = 6 * 1024 * 1024;
+const TEXT_MIME_PREFIXES = ["text/", "application/json", "application/xml", "application/csv"];
+
+async function fileToAttachment(file: File): Promise<Attachment> {
+  const buf = await file.arrayBuffer();
+  let binary = "";
+  const bytes = new Uint8Array(buf);
+  for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+  const dataBase64 = btoa(binary);
+  const att: Attachment = {
+    name: file.name,
+    mimeType: file.type || "application/octet-stream",
+    dataBase64,
+    size: file.size,
+  };
+  const isTextLike =
+    TEXT_MIME_PREFIXES.some((p) => att.mimeType.startsWith(p)) ||
+    /\.(txt|md|csv|json|log|eml|html?)$/i.test(file.name);
+  if (isTextLike) {
+    try {
+      att.textContent = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+    } catch {
+      /* keep base64 only */
+    }
+  }
+  return att;
+}
 
 export const Route = createFileRoute("/")({
   head: () => ({
