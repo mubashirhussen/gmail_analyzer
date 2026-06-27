@@ -1,29 +1,446 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { useMemo, useState } from "react";
+import {
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
+  Mail,
+  Link2,
+  AlertTriangle,
+  Activity,
+  Lock,
+  Eye,
+  Loader2,
+  Sparkles,
+  Send,
+  TrendingUp,
+} from "lucide-react";
+import { analyzeEmail, type EmailAnalysis } from "@/lib/analyze-email.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Your App" },
-      { name: "description", content: "Replace this with a one-sentence description of your app." },
-      { property: "og:title", content: "Your App" },
-      { property: "og:description", content: "Replace this with a one-sentence description of your app." },
+      { title: "MailGuard — AI Phishing & Fraud Email Analyzer" },
+      {
+        name: "description",
+        content:
+          "Forward any email to MailGuard to instantly detect phishing, fraud, malicious links, and social-engineering attacks. Get a risk score and a protection report.",
+      },
+      { property: "og:title", content: "MailGuard — AI Phishing & Fraud Email Analyzer" },
+      {
+        property: "og:description",
+        content: "Paste any email. Get an instant phishing & fraud verdict, risk score, and protection report.",
+      },
     ],
   }),
-  component: Index,
+  component: Dashboard,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
-function Index() {
+const SAMPLE = {
+  sender: "security-alert@paypa1-support.com",
+  subject: "URGENT: Your account will be suspended in 24 hours",
+  body: `Dear Customer,
+
+We detected unusual sign-in activity on your PayPal account from an unrecognized device in Lagos, Nigeria.
+To avoid permanent suspension of your account within the next 24 hours, you MUST verify your identity immediately.
+
+Click here to confirm your details: http://paypa1-verify.secure-login.ru/confirm?id=8821
+
+Failure to act will result in account closure and all funds being frozen.
+
+Sincerely,
+PayPal Security Team`,
+};
+
+function verdictMeta(v: EmailAnalysis["verdict"]) {
+  switch (v) {
+    case "safe":
+      return { label: "SAFE", color: "var(--safe)", Icon: ShieldCheck };
+    case "suspicious":
+      return { label: "SUSPICIOUS", color: "var(--warn)", Icon: ShieldAlert };
+    case "phishing":
+      return { label: "PHISHING", color: "var(--danger)", Icon: ShieldAlert };
+    case "fraud":
+      return { label: "FRAUD", color: "var(--critical)", Icon: ShieldAlert };
+  }
+}
+
+function severityColor(s: string) {
+  switch (s) {
+    case "low": return "var(--safe)";
+    case "medium": return "var(--warn)";
+    case "high": return "var(--danger)";
+    case "critical": return "var(--critical)";
+    default: return "var(--muted-foreground)";
+  }
+}
+
+function categoryLabel(c: string) {
+  return c.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+function Dashboard() {
+  const router = useRouter();
+  const analyze = useServerFn(analyzeEmail);
+  const [sender, setSender] = useState("");
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<EmailAnalysis | null>(null);
+  const [history, setHistory] = useState<EmailAnalysis[]>([]);
+
+  const protectionScore = useMemo(() => {
+    if (history.length === 0) return 100;
+    const avgRisk = history.reduce((s, h) => s + h.riskScore, 0) / history.length;
+    return Math.max(0, Math.round(100 - avgRisk * 0.7));
+  }, [history]);
+
+  const stats = useMemo(() => {
+    const threats = history.filter((h) => h.verdict !== "safe").length;
+    const links = history.reduce((s, h) => s + h.suspiciousLinks.length, 0);
+    return { scanned: history.length, threats, links };
+  }, [history]);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    setResult(null);
+    try {
+      const res = await analyze({ data: { sender, subject, body } });
+      setResult(res);
+      setHistory((h) => [res, ...h].slice(0, 25));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setLoading(false);
+    }
+    void router;
+  }
+
+  function loadSample() {
+    setSender(SAMPLE.sender);
+    setSubject(SAMPLE.subject);
+    setBody(SAMPLE.body);
+  }
+
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
+    <main className="min-h-screen text-foreground">
+      {/* Header */}
+      <header className="sticky top-0 z-20 border-b border-border/60 backdrop-blur-md bg-background/70">
+        <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <div className="absolute inset-0 rounded-md blur-md" style={{ background: "var(--safe)", opacity: 0.4 }} />
+              <div className="relative h-9 w-9 rounded-md border border-border flex items-center justify-center" style={{ background: "linear-gradient(135deg, oklch(0.30 0.06 200), oklch(0.22 0.04 260))" }}>
+                <Shield className="h-5 w-5" style={{ color: "var(--safe)" }} />
+              </div>
+            </div>
+            <div>
+              <h1 className="text-base font-semibold tracking-tight">MailGuard</h1>
+              <p className="text-xs text-muted-foreground font-mono">phishing · fraud · link analysis</p>
+            </div>
+          </div>
+          <div className="hidden md:flex items-center gap-2">
+            <span className="chip" style={{ color: "var(--safe)" }}>
+              <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--safe)", animation: "pulse-ring 1.6s ease-in-out infinite" }} />
+              Engine online
+            </span>
+            <span className="chip font-mono">v1.0 · gemini</span>
+          </div>
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-7xl px-6 py-8 grid grid-cols-12 gap-6">
+        {/* Left: stats + protection */}
+        <aside className="col-span-12 lg:col-span-3 space-y-4">
+          <ProtectionMeter score={protectionScore} />
+          <StatCard icon={Mail} label="Emails Scanned" value={stats.scanned} accent="var(--safe)" />
+          <StatCard icon={AlertTriangle} label="Threats Blocked" value={stats.threats} accent="var(--danger)" />
+          <StatCard icon={Link2} label="Suspicious Links" value={stats.links} accent="var(--warn)" />
+
+          <div className="panel p-4">
+            <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-mono mb-3">Coverage</h3>
+            <ul className="space-y-2 text-sm">
+              {[
+                "Spoofed sender detection",
+                "Malicious URL & homoglyph scan",
+                "Credential harvesting patterns",
+                "Social-engineering & urgency",
+                "Financial scam heuristics",
+                "Attachment risk profiling",
+              ].map((t) => (
+                <li key={t} className="flex items-start gap-2 text-muted-foreground">
+                  <Lock className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" style={{ color: "var(--safe)" }} />
+                  <span>{t}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </aside>
+
+        {/* Center: input */}
+        <section className="col-span-12 lg:col-span-6 space-y-4">
+          <div className="panel p-6 scanline">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <Sparkles className="h-4 w-4" style={{ color: "var(--safe)" }} />
+                  Analyze an email
+                </h2>
+                <p className="text-xs text-muted-foreground mt-1 font-mono">
+                  Paste or forward the message. Nothing is stored.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={loadSample}
+                className="text-xs font-mono px-2.5 py-1 rounded-md border border-border hover:bg-accent transition"
+              >
+                Load sample
+              </button>
+            </div>
+
+            <form onSubmit={onSubmit} className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <Field label="From" value={sender} onChange={setSender} placeholder="alerts@bank-update.co" />
+                <Field label="Subject" value={subject} onChange={setSubject} placeholder="Verify your account now" />
+              </div>
+              <div>
+                <label className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono">Email body</label>
+                <textarea
+                  required
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                  rows={11}
+                  placeholder="Paste the full email content here…"
+                  className="mt-1 w-full rounded-md bg-input/60 border border-border px-3 py-2.5 text-sm font-mono leading-relaxed outline-none focus:ring-2 focus:ring-ring/60 focus:border-ring resize-y"
+                />
+              </div>
+
+              {error && (
+                <div className="text-sm rounded-md border px-3 py-2" style={{ borderColor: "var(--critical)", color: "var(--critical)", background: "oklch(0.20 0.04 25 / 30%)" }}>
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading || !body.trim()}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ background: "var(--safe)", color: "var(--primary-foreground)", boxShadow: "var(--shadow-glow-safe)" }}
+              >
+                {loading ? (<><Loader2 className="h-4 w-4 animate-spin" /> Scanning…</>) : (<><Send className="h-4 w-4" /> Run Threat Scan</>)}
+              </button>
+            </form>
+          </div>
+
+          {result && <AnalysisReport result={result} />}
+        </section>
+
+        {/* Right: history */}
+        <aside className="col-span-12 lg:col-span-3 space-y-4">
+          <div className="panel p-4">
+            <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-mono mb-3 flex items-center gap-2">
+              <Activity className="h-3.5 w-3.5" /> Recent Scans
+            </h3>
+            {history.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No scans yet. Run your first analysis to see results here.</p>
+            ) : (
+              <ul className="space-y-2">
+                {history.map((h, i) => {
+                  const m = verdictMeta(h.verdict);
+                  return (
+                    <li key={i} className="flex items-center justify-between gap-2 rounded-md border border-border/70 px-2.5 py-2 bg-card/50">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <m.Icon className="h-4 w-4 flex-shrink-0" style={{ color: m.color }} />
+                        <span className="text-xs truncate">{h.summary}</span>
+                      </div>
+                      <span className="text-[10px] font-mono font-semibold" style={{ color: m.color }}>
+                        {h.riskScore}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </aside>
+      </div>
+    </main>
+  );
+}
+
+function Field({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
+  return (
+    <div>
+      <label className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono">{label}</label>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="mt-1 w-full rounded-md bg-input/60 border border-border px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-ring/60 focus:border-ring"
       />
+    </div>
+  );
+}
+
+function StatCard({ icon: Icon, label, value, accent }: { icon: typeof Mail; label: string; value: number; accent: string }) {
+  return (
+    <div className="panel p-4 flex items-center gap-3">
+      <div className="h-10 w-10 rounded-md flex items-center justify-center border border-border" style={{ background: `color-mix(in oklab, ${accent} 12%, transparent)` }}>
+        <Icon className="h-4 w-4" style={{ color: accent }} />
+      </div>
+      <div>
+        <div className="text-2xl font-semibold font-mono">{value}</div>
+        <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono">{label}</div>
+      </div>
+    </div>
+  );
+}
+
+function ProtectionMeter({ score }: { score: number }) {
+  const color = score >= 75 ? "var(--safe)" : score >= 45 ? "var(--warn)" : "var(--critical)";
+  const r = 42;
+  const c = 2 * Math.PI * r;
+  const offset = c - (score / 100) * c;
+  return (
+    <div className="panel p-5 text-center">
+      <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-mono mb-3 flex items-center justify-center gap-2">
+        <Eye className="h-3.5 w-3.5" /> Protection Score
+      </h3>
+      <div className="relative mx-auto h-32 w-32">
+        <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
+          <circle cx="50" cy="50" r={r} fill="none" stroke="var(--border)" strokeWidth="8" />
+          <circle
+            cx="50" cy="50" r={r} fill="none" stroke={color} strokeWidth="8"
+            strokeLinecap="round" strokeDasharray={c} strokeDashoffset={offset}
+            style={{ transition: "stroke-dashoffset 800ms ease, stroke 400ms ease", filter: `drop-shadow(0 0 6px ${color})` }}
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <div className="text-3xl font-bold font-mono" style={{ color }}>{score}</div>
+          <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">/ 100</div>
+        </div>
+      </div>
+      <p className="mt-3 text-xs text-muted-foreground">
+        Your inbox protection level based on recent scans.
+      </p>
+    </div>
+  );
+}
+
+function AnalysisReport({ result }: { result: EmailAnalysis }) {
+  const m = verdictMeta(result.verdict);
+  const isDanger = result.verdict === "phishing" || result.verdict === "fraud";
+
+  return (
+    <div className={`panel p-6 ${isDanger ? "glow-danger" : "glow-safe"}`}>
+      {/* Verdict bar */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-3">
+          <div
+            className="h-12 w-12 rounded-md flex items-center justify-center border"
+            style={{ borderColor: m.color, background: `color-mix(in oklab, ${m.color} 15%, transparent)` }}
+          >
+            <m.Icon className="h-6 w-6" style={{ color: m.color }} />
+          </div>
+          <div>
+            <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Verdict</div>
+            <div className="text-xl font-bold tracking-tight" style={{ color: m.color }}>{m.label}</div>
+          </div>
+        </div>
+
+        <div className="text-right">
+          <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Risk score</div>
+          <div className="text-3xl font-bold font-mono" style={{ color: m.color }}>
+            {result.riskScore}<span className="text-base text-muted-foreground">/100</span>
+          </div>
+          <div className="text-[11px] font-mono text-muted-foreground mt-0.5">
+            confidence {result.confidence}%
+          </div>
+        </div>
+      </div>
+
+      {/* Risk bar */}
+      <div className="mt-4">
+        <div className="h-2 w-full rounded-full overflow-hidden bg-secondary/60 border border-border">
+          <div
+            className="h-full rounded-full transition-all duration-700"
+            style={{ width: `${result.riskScore}%`, background: `linear-gradient(90deg, var(--safe), var(--warn), var(--danger), var(--critical))` }}
+          />
+        </div>
+        <div className="flex justify-between text-[10px] font-mono text-muted-foreground mt-1 uppercase">
+          <span>Safe</span><span>Suspicious</span><span>Phishing</span><span>Fraud</span>
+        </div>
+      </div>
+
+      <p className="mt-5 text-sm leading-relaxed">{result.summary}</p>
+
+      {/* Indicators */}
+      {result.indicators.length > 0 && (
+        <section className="mt-6">
+          <h4 className="text-xs uppercase tracking-wider text-muted-foreground font-mono mb-2 flex items-center gap-2">
+            <AlertTriangle className="h-3.5 w-3.5" /> Threat indicators ({result.indicators.length})
+          </h4>
+          <ul className="space-y-2">
+            {result.indicators.map((ind, i) => (
+              <li key={i} className="rounded-md border border-border bg-card/60 px-3 py-2.5 flex items-start gap-3">
+                <span
+                  className="mt-0.5 chip text-[10px]"
+                  style={{ color: severityColor(ind.severity), borderColor: severityColor(ind.severity) }}
+                >
+                  {ind.severity}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold">{categoryLabel(ind.category)}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">{ind.detail}</div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* Suspicious Links */}
+      {result.suspiciousLinks.length > 0 && (
+        <section className="mt-6">
+          <h4 className="text-xs uppercase tracking-wider text-muted-foreground font-mono mb-2 flex items-center gap-2">
+            <Link2 className="h-3.5 w-3.5" /> Suspicious links ({result.suspiciousLinks.length})
+          </h4>
+          <ul className="space-y-2">
+            {result.suspiciousLinks.map((l, i) => (
+              <li key={i} className="rounded-md border border-border bg-card/60 px-3 py-2.5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="chip text-[10px]" style={{ color: severityColor(l.risk), borderColor: severityColor(l.risk) }}>
+                    {l.risk}
+                  </span>
+                  <code className="text-xs font-mono break-all" style={{ color: "var(--warn)" }}>{l.url}</code>
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">{l.reason}</div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* Recommendations */}
+      <section className="mt-6">
+        <h4 className="text-xs uppercase tracking-wider text-muted-foreground font-mono mb-2 flex items-center gap-2">
+          <TrendingUp className="h-3.5 w-3.5" /> Recommended actions
+        </h4>
+        <ul className="space-y-1.5">
+          {result.recommendations.map((r, i) => (
+            <li key={i} className="flex items-start gap-2 text-sm">
+              <ShieldCheck className="h-4 w-4 mt-0.5 flex-shrink-0" style={{ color: "var(--safe)" }} />
+              <span>{r}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
     </div>
   );
 }
