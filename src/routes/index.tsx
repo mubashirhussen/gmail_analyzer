@@ -1,33 +1,22 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import {
-  Shield,
-  ShieldAlert,
-  ShieldCheck,
-  Mail,
-  Link2,
-  AlertTriangle,
-  Activity,
-  Lock,
-  Eye,
-  Loader2,
-  Sparkles,
-  Send,
-  TrendingUp,
-  Paperclip,
-  X,
-  FileText,
-  Image as ImageIcon,
+  Shield, ShieldAlert, ShieldCheck, Mail, Link2, AlertTriangle, Activity, Lock,
+  Eye, Loader2, Sparkles, Send, TrendingUp, Paperclip, X, FileText, Image as ImageIcon,
 } from "lucide-react";
 import { analyzeEmail, type EmailAnalysis } from "@/lib/analyze-email.functions";
+import { useAuth } from "@/lib/auth-context";
+import { AuthGate } from "@/components/auth-gate";
+import { AppMenu, type ViewKey } from "@/components/app-menu";
+import {
+  CertInPanel, DataPrivacyPanel, HistoryPanel, RecommendationModal, SecurityTipsPanel,
+  exportHistoryCSV, exportHistoryPDF, type RecommendationContext,
+} from "@/components/panels";
+import type { HistoryItem } from "@/lib/secure-store";
 
 type Attachment = {
-  name: string;
-  mimeType: string;
-  dataBase64: string;
-  textContent?: string;
-  size: number;
+  name: string; mimeType: string; dataBase64: string; textContent?: string; size: number;
 };
 
 const MAX_FILE_BYTES = 6 * 1024 * 1024;
@@ -39,21 +28,12 @@ async function fileToAttachment(file: File): Promise<Attachment> {
   const bytes = new Uint8Array(buf);
   for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
   const dataBase64 = btoa(binary);
-  const att: Attachment = {
-    name: file.name,
-    mimeType: file.type || "application/octet-stream",
-    dataBase64,
-    size: file.size,
-  };
+  const att: Attachment = { name: file.name, mimeType: file.type || "application/octet-stream", dataBase64, size: file.size };
   const isTextLike =
     TEXT_MIME_PREFIXES.some((p) => att.mimeType.startsWith(p)) ||
     /\.(txt|md|csv|json|log|eml|html?)$/i.test(file.name);
   if (isTextLike) {
-    try {
-      att.textContent = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
-    } catch {
-      /* keep base64 only */
-    }
+    try { att.textContent = new TextDecoder("utf-8", { fatal: false }).decode(bytes); } catch { /* keep base64 */ }
   }
   return att;
 }
@@ -62,20 +42,20 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "MailGuard — AI Phishing & Fraud Email Analyzer" },
-      {
-        name: "description",
-        content:
-          "Forward any email to MailGuard to instantly detect phishing, fraud, malicious links, and social-engineering attacks. Get a risk score and a protection report.",
-      },
+      { name: "description", content: "Forward any email to MailGuard to instantly detect phishing, fraud, malicious links, and social-engineering attacks." },
       { property: "og:title", content: "MailGuard — AI Phishing & Fraud Email Analyzer" },
-      {
-        property: "og:description",
-        content: "Paste any email. Get an instant phishing & fraud verdict, risk score, and protection report.",
-      },
+      { property: "og:description", content: "Paste any email. Get an instant phishing & fraud verdict, risk score, and protection report." },
     ],
   }),
-  component: Dashboard,
+  component: Page,
 });
+
+function Page() {
+  const { ready, session } = useAuth();
+  if (!ready) return <main className="min-h-screen" />;
+  if (!session) return <AuthGate />;
+  return <Dashboard />;
+}
 
 const SAMPLE = {
   sender: "security-alert@paypa1-support.com",
@@ -95,17 +75,12 @@ PayPal Security Team`,
 
 function verdictMeta(v: EmailAnalysis["verdict"]) {
   switch (v) {
-    case "safe":
-      return { label: "SAFE", color: "var(--safe)", Icon: ShieldCheck };
-    case "suspicious":
-      return { label: "SUSPICIOUS", color: "var(--warn)", Icon: ShieldAlert };
-    case "phishing":
-      return { label: "PHISHING", color: "var(--danger)", Icon: ShieldAlert };
-    case "fraud":
-      return { label: "FRAUD", color: "var(--critical)", Icon: ShieldAlert };
+    case "safe": return { label: "SAFE", color: "var(--safe)", Icon: ShieldCheck };
+    case "suspicious": return { label: "SUSPICIOUS", color: "var(--warn)", Icon: ShieldAlert };
+    case "phishing": return { label: "PHISHING", color: "var(--danger)", Icon: ShieldAlert };
+    case "fraud": return { label: "FRAUD", color: "var(--critical)", Icon: ShieldAlert };
   }
 }
-
 function severityColor(s: string) {
   switch (s) {
     case "low": return "var(--safe)";
@@ -115,14 +90,14 @@ function severityColor(s: string) {
     default: return "var(--muted-foreground)";
   }
 }
-
 function categoryLabel(c: string) {
   return c.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
 function Dashboard() {
-  const router = useRouter();
+  const { session, history, addHistory, clearHistory, deleteCurrentAccount, switchAccount, logout } = useAuth();
   const analyze = useServerFn(analyzeEmail);
+  const [view, setView] = useState<ViewKey>("dashboard");
   const [sender, setSender] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
@@ -130,7 +105,9 @@ function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<EmailAnalysis | null>(null);
-  const [history, setHistory] = useState<EmailAnalysis[]>([]);
+  const [recCtx, setRecCtx] = useState<RecommendationContext | null>(null);
+
+  const account = session!.account;
 
   const protectionScore = useMemo(() => {
     if (history.length === 0) return 100;
@@ -149,257 +126,281 @@ function Dashboard() {
     setError(null);
     const next: Attachment[] = [];
     for (const f of Array.from(files)) {
-      if (f.size > MAX_FILE_BYTES) {
-        setError(`"${f.name}" is larger than 6 MB.`);
-        continue;
-      }
-      try {
-        next.push(await fileToAttachment(f));
-      } catch {
-        setError(`Could not read "${f.name}".`);
-      }
+      if (f.size > MAX_FILE_BYTES) { setError(`"${f.name}" is larger than 6 MB.`); continue; }
+      try { next.push(await fileToAttachment(f)); } catch { setError(`Could not read "${f.name}".`); }
     }
     setAttachments((prev) => [...prev, ...next].slice(0, 5));
   }
 
-  function removeAttachment(i: number) {
-    setAttachments((prev) => prev.filter((_, idx) => idx !== i));
-  }
+  function removeAttachment(i: number) { setAttachments((prev) => prev.filter((_, idx) => idx !== i)); }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
-    setLoading(true);
-    setResult(null);
+    setError(null); setLoading(true); setResult(null);
     try {
       const res = await analyze({
         data: {
-          sender,
-          subject,
-          body,
-          attachments: attachments.map(({ name, mimeType, dataBase64, textContent }) => ({
-            name,
-            mimeType,
-            dataBase64,
-            textContent,
-          })),
+          sender, subject, body,
+          attachments: attachments.map(({ name, mimeType, dataBase64, textContent }) => ({ name, mimeType, dataBase64, textContent })),
         },
       });
       setResult(res);
-      setHistory((h) => [res, ...h].slice(0, 25));
+      const item: HistoryItem = {
+        id: crypto.randomUUID(), at: Date.now(),
+        sender, subject, bodyPreview: body.slice(0, 280),
+        verdict: res.verdict, riskScore: res.riskScore, confidence: res.confidence,
+        summary: res.summary, indicators: res.indicators,
+        suspiciousLinks: res.suspiciousLinks, recommendations: res.recommendations,
+      };
+      await addHistory(item);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
-    } finally {
-      setLoading(false);
-    }
-    void router;
+    } finally { setLoading(false); }
   }
 
-  function loadSample() {
-    setSender(SAMPLE.sender);
-    setSubject(SAMPLE.subject);
-    setBody(SAMPLE.body);
+  function loadSample() { setSender(SAMPLE.sender); setSubject(SAMPLE.subject); setBody(SAMPLE.body); }
+
+  function openRec(rec: string) {
+    if (!result) return;
+    const topIndicators = [...result.indicators]
+      .sort((a, b) => severityRank(b.severity) - severityRank(a.severity))
+      .slice(0, 4);
+    setRecCtx({ recommendation: rec, verdict: result.verdict, riskScore: result.riskScore, topIndicators });
   }
 
+  function handleExportCSV() { exportHistoryCSV(history, account.username); }
+  function handleExportPDF() { exportHistoryPDF(history, account.username); }
+
+  function handleDeleteAccount() {
+    if (!confirm("Permanently delete this account and all encrypted local data?")) return;
+    deleteCurrentAccount();
+  }
+  async function handleClearHistory() {
+    if (!confirm("Clear all scan history for this account?")) return;
+    await clearHistory();
+  }
 
   return (
     <main className="min-h-screen text-foreground">
-      {/* Header */}
       <header className="sticky top-0 z-20 border-b border-border/60 backdrop-blur-md bg-background/70">
-        <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between gap-3">
+          <button onClick={() => setView("dashboard")} className="flex items-center gap-3">
             <div className="relative">
               <div className="absolute inset-0 rounded-md blur-md" style={{ background: "var(--safe)", opacity: 0.4 }} />
-              <div className="relative h-9 w-9 rounded-md border border-border flex items-center justify-center" style={{ background: "linear-gradient(135deg, oklch(0.30 0.06 200), oklch(0.22 0.04 260))" }}>
+              <div className="relative h-9 w-9 rounded-md border border-border flex items-center justify-center"
+                   style={{ background: "linear-gradient(135deg, oklch(0.30 0.06 200), oklch(0.22 0.04 260))" }}>
                 <Shield className="h-5 w-5" style={{ color: "var(--safe)" }} />
               </div>
             </div>
-            <div>
+            <div className="text-left">
               <h1 className="text-base font-semibold tracking-tight">MailGuard</h1>
               <p className="text-xs text-muted-foreground font-mono">phishing · fraud · link analysis</p>
             </div>
-          </div>
-          <div className="hidden md:flex items-center gap-2">
-            <span className="chip" style={{ color: "var(--safe)" }}>
+          </button>
+          <div className="flex items-center gap-2">
+            <span className="hidden md:inline-flex chip" style={{ color: "var(--safe)" }}>
               <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--safe)", animation: "pulse-ring 1.6s ease-in-out infinite" }} />
               Engine online
             </span>
-            <span className="chip font-mono">v1.0 · gemini</span>
+            <AppMenu
+              username={account.username} email={account.email}
+              onNavigate={setView}
+              onExportCSV={handleExportCSV} onExportPDF={handleExportPDF}
+              onSwitch={switchAccount} onSignOut={logout}
+            />
           </div>
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-6 py-8 grid grid-cols-12 gap-6">
-        {/* Left: stats + protection */}
-        <aside className="col-span-12 lg:col-span-3 space-y-4">
-          <ProtectionMeter score={protectionScore} />
-          <StatCard icon={Mail} label="Emails Scanned" value={stats.scanned} accent="var(--safe)" />
-          <StatCard icon={AlertTriangle} label="Threats Blocked" value={stats.threats} accent="var(--danger)" />
-          <StatCard icon={Link2} label="Suspicious Links" value={stats.links} accent="var(--warn)" />
+      <div className="mx-auto max-w-7xl px-6 py-8">
+        {view === "dashboard" && (
+          <DashboardView
+            protectionScore={protectionScore} stats={stats}
+            sender={sender} setSender={setSender}
+            subject={subject} setSubject={setSubject}
+            body={body} setBody={setBody}
+            attachments={attachments} onFilesPicked={onFilesPicked} removeAttachment={removeAttachment}
+            error={error} loading={loading} onSubmit={onSubmit} loadSample={loadSample}
+            result={result} openRec={openRec}
+            history={history}
+          />
+        )}
+        {view === "history" && (
+          <HistoryPanel history={history} onExportCSV={handleExportCSV} onExportPDF={handleExportPDF} />
+        )}
+        {view === "certin" && <CertInPanel />}
+        {view === "tips" && <SecurityTipsPanel />}
+        {view === "privacy" && (
+          <DataPrivacyPanel
+            accountEmail={account.email} accountUsername={account.username}
+            historyCount={history.length}
+            onClearHistory={handleClearHistory}
+            onDeleteAccount={handleDeleteAccount}
+          />
+        )}
+      </div>
 
-          <div className="panel p-4">
-            <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-mono mb-3">Coverage</h3>
-            <ul className="space-y-2 text-sm">
-              {[
-                "Spoofed sender detection",
-                "Malicious URL & homoglyph scan",
-                "Credential harvesting patterns",
-                "Social-engineering & urgency",
-                "Financial scam heuristics",
-                "Attachment risk profiling",
-              ].map((t) => (
-                <li key={t} className="flex items-start gap-2 text-muted-foreground">
-                  <Lock className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" style={{ color: "var(--safe)" }} />
-                  <span>{t}</span>
-                </li>
-              ))}
-            </ul>
+      <RecommendationModal open={recCtx !== null} onOpenChange={(o) => !o && setRecCtx(null)} ctx={recCtx} />
+    </main>
+  );
+}
+
+function severityRank(s: string) {
+  return s === "critical" ? 4 : s === "high" ? 3 : s === "medium" ? 2 : 1;
+}
+
+function DashboardView(props: {
+  protectionScore: number;
+  stats: { scanned: number; threats: number; links: number };
+  sender: string; setSender: (v: string) => void;
+  subject: string; setSubject: (v: string) => void;
+  body: string; setBody: (v: string) => void;
+  attachments: Attachment[];
+  onFilesPicked: (f: FileList | null) => void;
+  removeAttachment: (i: number) => void;
+  error: string | null; loading: boolean;
+  onSubmit: (e: React.FormEvent) => void; loadSample: () => void;
+  result: EmailAnalysis | null;
+  openRec: (rec: string) => void;
+  history: HistoryItem[];
+}) {
+  const {
+    protectionScore, stats, sender, setSender, subject, setSubject, body, setBody,
+    attachments, onFilesPicked, removeAttachment, error, loading, onSubmit, loadSample,
+    result, openRec, history,
+  } = props;
+
+  return (
+    <div className="grid grid-cols-12 gap-6">
+      <aside className="col-span-12 lg:col-span-3 space-y-4">
+        <ProtectionMeter score={protectionScore} />
+        <StatCard icon={Mail} label="Emails Scanned" value={stats.scanned} accent="var(--safe)" />
+        <StatCard icon={AlertTriangle} label="Threats Blocked" value={stats.threats} accent="var(--danger)" />
+        <StatCard icon={Link2} label="Suspicious Links" value={stats.links} accent="var(--warn)" />
+
+        <div className="panel p-4">
+          <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-mono mb-3">Coverage</h3>
+          <ul className="space-y-2 text-sm">
+            {["Spoofed sender detection","Malicious URL & homoglyph scan","Credential harvesting patterns",
+              "Social-engineering & urgency","Financial scam heuristics","Attachment risk profiling"].map((t) => (
+              <li key={t} className="flex items-start gap-2 text-muted-foreground">
+                <Lock className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" style={{ color: "var(--safe)" }} />
+                <span>{t}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </aside>
+
+      <section className="col-span-12 lg:col-span-6 space-y-4">
+        <div className="panel p-6 scanline">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Sparkles className="h-4 w-4" style={{ color: "var(--safe)" }} />
+                Analyze an email
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1 font-mono">
+                Paste or forward. Stored locally, encrypted with your passcode.
+              </p>
+            </div>
+            <button type="button" onClick={loadSample}
+                    className="text-xs font-mono px-2.5 py-1 rounded-md border border-border hover:bg-accent transition">
+              Load sample
+            </button>
           </div>
-        </aside>
 
-        {/* Center: input */}
-        <section className="col-span-12 lg:col-span-6 space-y-4">
-          <div className="panel p-6 scanline">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-lg font-semibold flex items-center gap-2">
-                  <Sparkles className="h-4 w-4" style={{ color: "var(--safe)" }} />
-                  Analyze an email
-                </h2>
-                <p className="text-xs text-muted-foreground mt-1 font-mono">
-                  Paste or forward the message. Nothing is stored.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={loadSample}
-                className="text-xs font-mono px-2.5 py-1 rounded-md border border-border hover:bg-accent transition"
-              >
-                Load sample
-              </button>
+          <form onSubmit={onSubmit} className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <Field label="From" value={sender} onChange={setSender} placeholder="alerts@bank-update.co" />
+              <Field label="Subject" value={subject} onChange={setSubject} placeholder="Verify your account now" />
+            </div>
+            <div>
+              <label className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono">Email body</label>
+              <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={10}
+                placeholder="Paste the full email content here… (or attach a screenshot / PDF below)"
+                className="mt-1 w-full rounded-md bg-input/60 border border-border px-3 py-2.5 text-sm font-mono leading-relaxed outline-none focus:ring-2 focus:ring-ring/60 focus:border-ring resize-y" />
             </div>
 
-            <form onSubmit={onSubmit} className="space-y-3">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <Field label="From" value={sender} onChange={setSender} placeholder="alerts@bank-update.co" />
-                <Field label="Subject" value={subject} onChange={setSubject} placeholder="Verify your account now" />
+            <div>
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono">
+                  Attachments <span className="opacity-60">(images, PDF, docs · up to 5 · 6 MB each)</span>
+                </label>
+                <label className="inline-flex items-center gap-1.5 text-xs font-mono px-2.5 py-1 rounded-md border border-border hover:bg-accent transition cursor-pointer">
+                  <Paperclip className="h-3.5 w-3.5" /> Attach
+                  <input type="file" multiple
+                    accept="image/*,application/pdf,.txt,.md,.csv,.json,.log,.eml,.html,.htm,.doc,.docx"
+                    className="hidden"
+                    onChange={(e) => { onFilesPicked(e.target.files); e.target.value = ""; }} />
+                </label>
               </div>
-              <div>
-                <label className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono">Email body</label>
-                <textarea
-                  value={body}
-                  onChange={(e) => setBody(e.target.value)}
-                  rows={11}
-                  placeholder="Paste the full email content here… (or attach a screenshot / PDF below)"
-                  className="mt-1 w-full rounded-md bg-input/60 border border-border px-3 py-2.5 text-sm font-mono leading-relaxed outline-none focus:ring-2 focus:ring-ring/60 focus:border-ring resize-y"
-                />
-              </div>
-
-              {/* Attachments */}
-              <div>
-                <div className="flex items-center justify-between">
-                  <label className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono">
-                    Attachments <span className="opacity-60">(images, PDF, docs · up to 5 · 6 MB each)</span>
-                  </label>
-                  <label className="inline-flex items-center gap-1.5 text-xs font-mono px-2.5 py-1 rounded-md border border-border hover:bg-accent transition cursor-pointer">
-                    <Paperclip className="h-3.5 w-3.5" />
-                    Attach
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/*,application/pdf,.txt,.md,.csv,.json,.log,.eml,.html,.htm,.doc,.docx"
-                      className="hidden"
-                      onChange={(e) => {
-                        onFilesPicked(e.target.files);
-                        e.target.value = "";
-                      }}
-                    />
-                  </label>
-                </div>
-                {attachments.length > 0 && (
-                  <ul className="mt-2 flex flex-wrap gap-2">
-                    {attachments.map((a, i) => {
-                      const isImg = a.mimeType.startsWith("image/");
-                      return (
-                        <li
-                          key={i}
-                          className="inline-flex items-center gap-2 rounded-md border border-border bg-card/60 pl-2 pr-1 py-1 text-xs"
-                        >
-                          {isImg ? (
-                            <ImageIcon className="h-3.5 w-3.5" style={{ color: "var(--safe)" }} />
-                          ) : (
-                            <FileText className="h-3.5 w-3.5" style={{ color: "var(--warn)" }} />
-                          )}
-                          <span className="font-mono max-w-[160px] truncate">{a.name}</span>
-                          <span className="text-[10px] text-muted-foreground font-mono">
-                            {(a.size / 1024).toFixed(0)} KB
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => removeAttachment(i)}
-                            className="ml-0.5 p-0.5 rounded hover:bg-accent"
-                            aria-label={`Remove ${a.name}`}
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-
-              {error && (
-                <div className="text-sm rounded-md border px-3 py-2" style={{ borderColor: "var(--critical)", color: "var(--critical)", background: "oklch(0.20 0.04 25 / 30%)" }}>
-                  {error}
-                </div>
+              {attachments.length > 0 && (
+                <ul className="mt-2 flex flex-wrap gap-2">
+                  {attachments.map((a, i) => {
+                    const isImg = a.mimeType.startsWith("image/");
+                    return (
+                      <li key={i} className="inline-flex items-center gap-2 rounded-md border border-border bg-card/60 pl-2 pr-1 py-1 text-xs">
+                        {isImg ? <ImageIcon className="h-3.5 w-3.5" style={{ color: "var(--safe)" }} />
+                               : <FileText className="h-3.5 w-3.5" style={{ color: "var(--warn)" }} />}
+                        <span className="font-mono max-w-[160px] truncate">{a.name}</span>
+                        <span className="text-[10px] text-muted-foreground font-mono">{(a.size / 1024).toFixed(0)} KB</span>
+                        <button type="button" onClick={() => removeAttachment(i)}
+                                className="ml-0.5 p-0.5 rounded hover:bg-accent" aria-label={`Remove ${a.name}`}>
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
               )}
+            </div>
 
-              <button
-                type="submit"
-                disabled={loading || (!body.trim() && attachments.length === 0)}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ background: "var(--safe)", color: "var(--primary-foreground)", boxShadow: "var(--shadow-glow-safe)" }}
-              >
-                {loading ? (<><Loader2 className="h-4 w-4 animate-spin" /> Scanning…</>) : (<><Send className="h-4 w-4" /> Run Threat Scan</>)}
-              </button>
-            </form>
-
-          </div>
-
-          {result && <AnalysisReport result={result} />}
-        </section>
-
-        {/* Right: history */}
-        <aside className="col-span-12 lg:col-span-3 space-y-4">
-          <div className="panel p-4">
-            <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-mono mb-3 flex items-center gap-2">
-              <Activity className="h-3.5 w-3.5" /> Recent Scans
-            </h3>
-            {history.length === 0 ? (
-              <p className="text-xs text-muted-foreground">No scans yet. Run your first analysis to see results here.</p>
-            ) : (
-              <ul className="space-y-2">
-                {history.map((h, i) => {
-                  const m = verdictMeta(h.verdict);
-                  return (
-                    <li key={i} className="flex items-center justify-between gap-2 rounded-md border border-border/70 px-2.5 py-2 bg-card/50">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <m.Icon className="h-4 w-4 flex-shrink-0" style={{ color: m.color }} />
-                        <span className="text-xs truncate">{h.summary}</span>
-                      </div>
-                      <span className="text-[10px] font-mono font-semibold" style={{ color: m.color }}>
-                        {h.riskScore}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
+            {error && (
+              <div className="text-sm rounded-md border px-3 py-2"
+                   style={{ borderColor: "var(--critical)", color: "var(--critical)", background: "oklch(0.20 0.04 25 / 30%)" }}>
+                {error}
+              </div>
             )}
-          </div>
-        </aside>
-      </div>
-    </main>
+
+            <button type="submit" disabled={loading || (!body.trim() && attachments.length === 0)}
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ background: "var(--safe)", color: "var(--primary-foreground)", boxShadow: "var(--shadow-glow-safe)" }}>
+              {loading ? (<><Loader2 className="h-4 w-4 animate-spin" /> Scanning…</>) : (<><Send className="h-4 w-4" /> Run Threat Scan</>)}
+            </button>
+          </form>
+        </div>
+
+        {result && <AnalysisReport result={result} openRec={openRec} />}
+      </section>
+
+      <aside className="col-span-12 lg:col-span-3 space-y-4">
+        <div className="panel p-4">
+          <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-mono mb-3 flex items-center gap-2">
+            <Activity className="h-3.5 w-3.5" /> Recent Scans
+          </h3>
+          {history.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No scans yet. Run your first analysis to see results here.</p>
+          ) : (
+            <ul className="space-y-2">
+              {history.slice(0, 8).map((h) => {
+                const m = verdictMeta(h.verdict);
+                return (
+                  <li key={h.id} className="flex items-center justify-between gap-2 rounded-md border border-border/70 px-2.5 py-2 bg-card/50">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <m.Icon className="h-4 w-4 flex-shrink-0" style={{ color: m.color }} />
+                      <span className="text-xs truncate">{h.subject || h.summary}</span>
+                    </div>
+                    <span className="text-[10px] font-mono font-semibold" style={{ color: m.color }}>{h.riskScore}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+        <CertInPanel />
+      </aside>
+    </div>
   );
 }
 
@@ -407,13 +408,8 @@ function Field({ label, value, onChange, placeholder }: { label: string; value: 
   return (
     <div>
       <label className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono">{label}</label>
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="mt-1 w-full rounded-md bg-input/60 border border-border px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-ring/60 focus:border-ring"
-      />
+      <input type="text" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+             className="mt-1 w-full rounded-md bg-input/60 border border-border px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-ring/60 focus:border-ring" />
     </div>
   );
 }
@@ -421,7 +417,8 @@ function Field({ label, value, onChange, placeholder }: { label: string; value: 
 function StatCard({ icon: Icon, label, value, accent }: { icon: typeof Mail; label: string; value: number; accent: string }) {
   return (
     <div className="panel p-4 flex items-center gap-3">
-      <div className="h-10 w-10 rounded-md flex items-center justify-center border border-border" style={{ background: `color-mix(in oklab, ${accent} 12%, transparent)` }}>
+      <div className="h-10 w-10 rounded-md flex items-center justify-center border border-border"
+           style={{ background: `color-mix(in oklab, ${accent} 12%, transparent)` }}>
         <Icon className="h-4 w-4" style={{ color: accent }} />
       </div>
       <div>
@@ -434,9 +431,7 @@ function StatCard({ icon: Icon, label, value, accent }: { icon: typeof Mail; lab
 
 function ProtectionMeter({ score }: { score: number }) {
   const color = score >= 75 ? "var(--safe)" : score >= 45 ? "var(--warn)" : "var(--critical)";
-  const r = 42;
-  const c = 2 * Math.PI * r;
-  const offset = c - (score / 100) * c;
+  const r = 42; const c = 2 * Math.PI * r; const offset = c - (score / 100) * c;
   return (
     <div className="panel p-5 text-center">
       <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-mono mb-3 flex items-center justify-center gap-2">
@@ -445,37 +440,29 @@ function ProtectionMeter({ score }: { score: number }) {
       <div className="relative mx-auto h-32 w-32">
         <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
           <circle cx="50" cy="50" r={r} fill="none" stroke="var(--border)" strokeWidth="8" />
-          <circle
-            cx="50" cy="50" r={r} fill="none" stroke={color} strokeWidth="8"
-            strokeLinecap="round" strokeDasharray={c} strokeDashoffset={offset}
-            style={{ transition: "stroke-dashoffset 800ms ease, stroke 400ms ease", filter: `drop-shadow(0 0 6px ${color})` }}
-          />
+          <circle cx="50" cy="50" r={r} fill="none" stroke={color} strokeWidth="8"
+                  strokeLinecap="round" strokeDasharray={c} strokeDashoffset={offset}
+                  style={{ transition: "stroke-dashoffset 800ms ease, stroke 400ms ease", filter: `drop-shadow(0 0 6px ${color})` }} />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <div className="text-3xl font-bold font-mono" style={{ color }}>{score}</div>
           <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">/ 100</div>
         </div>
       </div>
-      <p className="mt-3 text-xs text-muted-foreground">
-        Your inbox protection level based on recent scans.
-      </p>
+      <p className="mt-3 text-xs text-muted-foreground">Your inbox protection level based on recent scans.</p>
     </div>
   );
 }
 
-function AnalysisReport({ result }: { result: EmailAnalysis }) {
+function AnalysisReport({ result, openRec }: { result: EmailAnalysis; openRec: (r: string) => void }) {
   const m = verdictMeta(result.verdict);
   const isDanger = result.verdict === "phishing" || result.verdict === "fraud";
-
   return (
     <div className={`panel p-6 ${isDanger ? "glow-danger" : "glow-safe"}`}>
-      {/* Verdict bar */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
-          <div
-            className="h-12 w-12 rounded-md flex items-center justify-center border"
-            style={{ borderColor: m.color, background: `color-mix(in oklab, ${m.color} 15%, transparent)` }}
-          >
+          <div className="h-12 w-12 rounded-md flex items-center justify-center border"
+               style={{ borderColor: m.color, background: `color-mix(in oklab, ${m.color} 15%, transparent)` }}>
             <m.Icon className="h-6 w-6" style={{ color: m.color }} />
           </div>
           <div>
@@ -483,25 +470,19 @@ function AnalysisReport({ result }: { result: EmailAnalysis }) {
             <div className="text-xl font-bold tracking-tight" style={{ color: m.color }}>{m.label}</div>
           </div>
         </div>
-
         <div className="text-right">
           <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Risk score</div>
           <div className="text-3xl font-bold font-mono" style={{ color: m.color }}>
             {result.riskScore}<span className="text-base text-muted-foreground">/100</span>
           </div>
-          <div className="text-[11px] font-mono text-muted-foreground mt-0.5">
-            confidence {result.confidence}%
-          </div>
+          <div className="text-[11px] font-mono text-muted-foreground mt-0.5">confidence {result.confidence}%</div>
         </div>
       </div>
 
-      {/* Risk bar */}
       <div className="mt-4">
         <div className="h-2 w-full rounded-full overflow-hidden bg-secondary/60 border border-border">
-          <div
-            className="h-full rounded-full transition-all duration-700"
-            style={{ width: `${result.riskScore}%`, background: `linear-gradient(90deg, var(--safe), var(--warn), var(--danger), var(--critical))` }}
-          />
+          <div className="h-full rounded-full transition-all duration-700"
+               style={{ width: `${result.riskScore}%`, background: `linear-gradient(90deg, var(--safe), var(--warn), var(--danger), var(--critical))` }} />
         </div>
         <div className="flex justify-between text-[10px] font-mono text-muted-foreground mt-1 uppercase">
           <span>Safe</span><span>Suspicious</span><span>Phishing</span><span>Fraud</span>
@@ -510,7 +491,6 @@ function AnalysisReport({ result }: { result: EmailAnalysis }) {
 
       <p className="mt-5 text-sm leading-relaxed">{result.summary}</p>
 
-      {/* Indicators */}
       {result.indicators.length > 0 && (
         <section className="mt-6">
           <h4 className="text-xs uppercase tracking-wider text-muted-foreground font-mono mb-2 flex items-center gap-2">
@@ -519,10 +499,8 @@ function AnalysisReport({ result }: { result: EmailAnalysis }) {
           <ul className="space-y-2">
             {result.indicators.map((ind, i) => (
               <li key={i} className="rounded-md border border-border bg-card/60 px-3 py-2.5 flex items-start gap-3">
-                <span
-                  className="mt-0.5 chip text-[10px]"
-                  style={{ color: severityColor(ind.severity), borderColor: severityColor(ind.severity) }}
-                >
+                <span className="mt-0.5 chip text-[10px]"
+                      style={{ color: severityColor(ind.severity), borderColor: severityColor(ind.severity) }}>
                   {ind.severity}
                 </span>
                 <div className="min-w-0 flex-1">
@@ -535,7 +513,6 @@ function AnalysisReport({ result }: { result: EmailAnalysis }) {
         </section>
       )}
 
-      {/* Suspicious Links */}
       {result.suspiciousLinks.length > 0 && (
         <section className="mt-6">
           <h4 className="text-xs uppercase tracking-wider text-muted-foreground font-mono mb-2 flex items-center gap-2">
@@ -557,16 +534,20 @@ function AnalysisReport({ result }: { result: EmailAnalysis }) {
         </section>
       )}
 
-      {/* Recommendations */}
       <section className="mt-6">
         <h4 className="text-xs uppercase tracking-wider text-muted-foreground font-mono mb-2 flex items-center gap-2">
           <TrendingUp className="h-3.5 w-3.5" /> Recommended actions
+          <span className="text-[10px] text-muted-foreground normal-case tracking-normal">(click for details)</span>
         </h4>
         <ul className="space-y-1.5">
           {result.recommendations.map((r, i) => (
-            <li key={i} className="flex items-start gap-2 text-sm">
-              <ShieldCheck className="h-4 w-4 mt-0.5 flex-shrink-0" style={{ color: "var(--safe)" }} />
-              <span>{r}</span>
+            <li key={i}>
+              <button type="button" onClick={() => openRec(r)}
+                      className="w-full text-left flex items-start gap-2 text-sm rounded-md px-2.5 py-2 hover:bg-accent/60 border border-transparent hover:border-border transition">
+                <ShieldCheck className="h-4 w-4 mt-0.5 flex-shrink-0" style={{ color: "var(--safe)" }} />
+                <span className="flex-1">{r}</span>
+                <span className="text-[10px] font-mono text-muted-foreground mt-1">view ↗</span>
+              </button>
             </li>
           ))}
         </ul>
