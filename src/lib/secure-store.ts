@@ -9,7 +9,6 @@ export type StoredAccount = {
   username: string;
   email: string;
   createdAt: number;
-  // passcode verifier (encrypted known plaintext)
   saltB64: string;
   ivB64: string;
   ctB64: string;
@@ -50,6 +49,12 @@ function b64decode(s: string): Uint8Array {
 }
 
 // --- crypto ---
+// IMPORTANT: keys are *extractable: true*. The CryptoKey instances never leave
+// this module (kept in a module-scoped Map in auth-context, never put into
+// React state), so extractability doesn't change the threat model — but it
+// prevents tooling that walks the React tree from tripping over a
+// non-extractable key (the "Failed to execute 'exportKey' ... key is not
+// extractable" runtime error that broke account creation).
 async function deriveKey(passcode: string, salt: Uint8Array): Promise<CryptoKey> {
   const baseKey = await crypto.subtle.importKey(
     "raw",
@@ -62,7 +67,7 @@ async function deriveKey(passcode: string, salt: Uint8Array): Promise<CryptoKey>
     { name: "PBKDF2", salt: salt as BufferSource, iterations: PBKDF2_ITERS, hash: "SHA-256" },
     baseKey,
     { name: "AES-GCM", length: 256 },
-    false,
+    true,
     ["encrypt", "decrypt"],
   );
 }
@@ -146,6 +151,33 @@ export async function unlockAccount(accountId: string, passcode: string): Promis
   acc.lastLoginAt = Date.now();
   saveAccounts(accounts.map((a) => (a.id === acc.id ? acc : a)));
   return { account: acc, key };
+}
+
+export async function changePasscode(args: {
+  accountId: string;
+  currentPasscode: string;
+  newPasscode: string;
+}): Promise<{ account: StoredAccount; key: CryptoKey }> {
+  if (args.newPasscode.length < 6) throw new Error("New passcode must be at least 6 characters.");
+  const { account, key: oldKey } = await unlockAccount(args.accountId, args.currentPasscode);
+
+  // re-encrypt history under the new key
+  let items: HistoryItem[] = [];
+  try { items = await loadHistory(account.id, oldKey); } catch { items = []; }
+
+  const newSalt = crypto.getRandomValues(new Uint8Array(16));
+  const newKey = await deriveKey(args.newPasscode, newSalt);
+  const verifier = await encryptJSON(newKey, VERIFIER_PLAINTEXT);
+
+  const updated: StoredAccount = {
+    ...account,
+    saltB64: b64encode(newSalt),
+    ivB64: verifier.ivB64,
+    ctB64: verifier.ctB64,
+  };
+  saveAccounts(listAccounts().map((a) => (a.id === account.id ? updated : a)));
+  await saveHistory(account.id, newKey, items);
+  return { account: updated, key: newKey };
 }
 
 export async function loadHistory(accountId: string, key: CryptoKey): Promise<HistoryItem[]> {
