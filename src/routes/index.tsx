@@ -10,7 +10,7 @@ import { useAuth } from "@/lib/auth-context";
 import { AuthGate } from "@/components/auth-gate";
 import { AppMenu, type ViewKey } from "@/components/app-menu";
 import {
-  CertInPanel, DataPrivacyPanel, HistoryPanel, RecommendationModal, SecurityTipsPanel,
+  CertInPanel, ChangePasscodeDialog, DataPrivacyPanel, HistoryPanel, RecommendationModal, SecurityTipsPanel,
   exportHistoryCSV, exportHistoryPDF, type RecommendationContext,
 } from "@/components/panels";
 import type { HistoryItem } from "@/lib/secure-store";
@@ -95,7 +95,7 @@ function categoryLabel(c: string) {
 }
 
 function Dashboard() {
-  const { session, history, addHistory, clearHistory, deleteCurrentAccount, switchAccount, logout } = useAuth();
+  const { session, history, addHistory, clearHistory, deleteCurrentAccount, switchAccount, logout, lockNow, changePasscode } = useAuth();
   const analyze = useServerFn(analyzeEmail);
   const [view, setView] = useState<ViewKey>("dashboard");
   const [sender, setSender] = useState("");
@@ -106,6 +106,7 @@ function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<EmailAnalysis | null>(null);
   const [recCtx, setRecCtx] = useState<RecommendationContext | null>(null);
+  const [pwOpen, setPwOpen] = useState(false);
 
   const account = session!.account;
 
@@ -165,7 +166,21 @@ function Dashboard() {
     const topIndicators = [...result.indicators]
       .sort((a, b) => severityRank(b.severity) - severityRank(a.severity))
       .slice(0, 4);
-    setRecCtx({ recommendation: rec, verdict: result.verdict, riskScore: result.riskScore, topIndicators });
+    // Build the list of substrings to highlight inside the email body:
+    // every suspicious URL + meaningful keywords from the indicator details
+    // + the From address when it appears.
+    const matches: string[] = [];
+    for (const l of result.suspiciousLinks) if (l.url) matches.push(l.url);
+    for (const ind of topIndicators) {
+      for (const tok of ind.detail.split(/[\s,;:"'()\[\]<>]+/)) {
+        if (tok.length >= 5 && /[a-z0-9]/i.test(tok)) matches.push(tok);
+      }
+    }
+    if (sender) matches.push(sender);
+    setRecCtx({
+      recommendation: rec, verdict: result.verdict, riskScore: result.riskScore,
+      topIndicators, emailText: body, matches: Array.from(new Set(matches)),
+    });
   }
 
   function handleExportCSV() { exportHistoryCSV(history, account.username); }
@@ -207,6 +222,7 @@ function Dashboard() {
               onNavigate={setView}
               onExportCSV={handleExportCSV} onExportPDF={handleExportPDF}
               onSwitch={switchAccount} onSignOut={logout}
+              onLockNow={lockNow} onChangePasscode={() => setPwOpen(true)}
             />
           </div>
         </div>
@@ -236,9 +252,13 @@ function Dashboard() {
             historyCount={history.length}
             onClearHistory={handleClearHistory}
             onDeleteAccount={handleDeleteAccount}
+            onLockNow={lockNow}
+            onChangePasscode={() => setPwOpen(true)}
           />
         )}
       </div>
+
+      <ChangePasscodeDialog open={pwOpen} onOpenChange={setPwOpen} onSubmit={changePasscode} />
 
       <RecommendationModal open={recCtx !== null} onOpenChange={(o) => !o && setRecCtx(null)} ctx={recCtx} />
     </main>
