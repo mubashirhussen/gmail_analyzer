@@ -5,6 +5,7 @@ import {
 import {
   AlertTriangle, ShieldCheck, ExternalLink, BookOpen, Database, Trash2,
   FileDown, FileText as FileTextIcon, ShieldAlert, Globe2, Phone, Mail as MailIcon,
+  Lock, Loader2, KeyRound,
 } from "lucide-react";
 import type { HistoryItem } from "@/lib/secure-store";
 
@@ -15,6 +16,10 @@ export type RecommendationContext = {
   verdict: HistoryItem["verdict"];
   riskScore: number;
   topIndicators: { category: string; severity: string; detail: string }[];
+  // text of the analyzed email (body) so we can highlight matched indicators
+  emailText: string;
+  // substrings to highlight inside emailText (URLs, sender, keywords from indicators)
+  matches: string[];
 };
 
 export function RecommendationModal({
@@ -24,7 +29,7 @@ export function RecommendationModal({
   const safeAction = nextSafeAction(ctx);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg bg-card border-border">
+      <DialogContent className="max-w-2xl bg-card border-border max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ShieldCheck className="h-4 w-4" style={{ color: "var(--safe)" }} />
@@ -52,6 +57,20 @@ export function RecommendationModal({
             )}
           </section>
 
+          {ctx.emailText.trim().length > 0 && (
+            <section>
+              <h4 className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono mb-2">
+                Matched signals in your email
+              </h4>
+              <pre className="rounded-md border border-border bg-background/50 p-3 text-xs font-mono whitespace-pre-wrap leading-relaxed max-h-64 overflow-auto">
+                <Highlighted text={ctx.emailText} matches={ctx.matches} />
+              </pre>
+              {ctx.matches.length === 0 && (
+                <p className="text-[11px] text-muted-foreground mt-1">No literal matches found — the verdict is based on higher-level patterns the AI detected.</p>
+              )}
+            </section>
+          )}
+
           <section className="rounded-md border border-border p-3" style={{ background: "color-mix(in oklab, var(--safe) 10%, transparent)" }}>
             <h4 className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono mb-1">Safest next action</h4>
             <p className="text-sm font-medium">{safeAction}</p>
@@ -70,6 +89,25 @@ export function RecommendationModal({
   );
 }
 
+function Highlighted({ text, matches }: { text: string; matches: string[] }) {
+  if (matches.length === 0) return <>{text}</>;
+  const escaped = matches
+    .filter((m) => m && m.trim().length >= 3)
+    .map((m) => m.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  if (escaped.length === 0) return <>{text}</>;
+  const re = new RegExp(`(${escaped.join("|")})`, "gi");
+  const parts = text.split(re);
+  return (
+    <>
+      {parts.map((p, i) =>
+        re.test(p)
+          ? <mark key={i} style={{ background: "color-mix(in oklab, var(--critical) 35%, transparent)", color: "var(--foreground)", padding: "0 2px", borderRadius: 3 }}>{p}</mark>
+          : <span key={i}>{p}</span>,
+      )}
+    </>
+  );
+}
+
 function nextSafeAction(ctx: RecommendationContext): string {
   const r = ctx.recommendation.toLowerCase();
   if (r.includes("link") || r.includes("url") || r.includes("click")) return "Do not click any link. Type the official site URL into the browser manually.";
@@ -79,6 +117,92 @@ function nextSafeAction(ctx: RecommendationContext): string {
   if (r.includes("report") || r.includes("forward")) return "Forward the email to report@phishing.gov.in (India CERT-In) and your mail provider's abuse address.";
   if (ctx.verdict === "safe") return "Looks clean. Still avoid clicking links you didn't expect.";
   return "Delete the email, do not reply, and report it to your IT team or India CERT-In (incident@cert-in.org.in).";
+}
+
+/* ---------------- Change passcode dialog ---------------- */
+
+export function ChangePasscodeDialog({
+  open, onOpenChange, onSubmit,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onSubmit: (current: string, next: string) => Promise<void>;
+}) {
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setErr(null);
+    if (next !== confirmPw) { setErr("New passcodes don't match."); return; }
+    if (next.length < 6) { setErr("New passcode must be at least 6 characters."); return; }
+    setBusy(true);
+    try {
+      await onSubmit(current, next);
+      setDone(true);
+      setTimeout(() => {
+        setDone(false); setCurrent(""); setNext(""); setConfirmPw("");
+        onOpenChange(false);
+      }, 1100);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed.");
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!busy) { onOpenChange(v); if (!v) { setErr(null); setCurrent(""); setNext(""); setConfirmPw(""); } } }}>
+      <DialogContent className="max-w-md bg-card border-border">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <KeyRound className="h-4 w-4" style={{ color: "var(--safe)" }} />
+            Change passcode
+          </DialogTitle>
+          <DialogDescription>
+            Your encrypted mail history is re-encrypted with the new passcode immediately.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={submit} className="space-y-3 mt-1">
+          <PwField label="Current passcode" value={current} onChange={setCurrent} />
+          <PwField label="New passcode (min 6 chars)" value={next} onChange={setNext} />
+          <PwField label="Confirm new passcode" value={confirmPw} onChange={setConfirmPw} />
+          {err && (
+            <div className="text-xs rounded-md border px-3 py-2"
+                 style={{ borderColor: "var(--critical)", color: "var(--critical)", background: "oklch(0.20 0.04 25 / 30%)" }}>
+              {err}
+            </div>
+          )}
+          {done && (
+            <div className="text-xs rounded-md border px-3 py-2"
+                 style={{ borderColor: "var(--safe)", color: "var(--safe)", background: "color-mix(in oklab, var(--safe) 10%, transparent)" }}>
+              Passcode updated. History re-encrypted.
+            </div>
+          )}
+          <DialogFooter>
+            <button type="submit" disabled={busy}
+                    className="inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold disabled:opacity-50"
+                    style={{ background: "var(--safe)", color: "var(--primary-foreground)" }}>
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+              Update passcode
+            </button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PwField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div>
+      <label className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono">{label}</label>
+      <input type="password" value={value} onChange={(e) => onChange(e.target.value)}
+             className="mt-1 w-full rounded-md bg-input/60 border border-border px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-ring/60 focus:border-ring" />
+    </div>
+  );
 }
 
 /* ---------------- CERT-In awareness ---------------- */
@@ -153,10 +277,11 @@ export function SecurityTipsPanel() {
 
 export function DataPrivacyPanel({
   accountEmail, accountUsername, historyCount,
-  onClearHistory, onDeleteAccount,
+  onClearHistory, onDeleteAccount, onLockNow, onChangePasscode,
 }: {
   accountEmail: string; accountUsername: string; historyCount: number;
   onClearHistory: () => void; onDeleteAccount: () => void;
+  onLockNow: () => void; onChangePasscode: () => void;
 }) {
   return (
     <div className="panel p-5 space-y-4">
@@ -182,11 +307,33 @@ export function DataPrivacyPanel({
         <div className="font-semibold">How encryption works here</div>
         <p className="text-muted-foreground">
           Your passcode is run through PBKDF2-SHA256 (150,000 iterations) to derive a 256-bit AES-GCM key.
-          The key only lives in memory while you are logged in — forget the passcode and the data is mathematically unrecoverable.
+          The key only lives in memory while you are unlocked. After <span className="font-semibold text-foreground">10 minutes of inactivity</span> the app
+          auto-locks and the key is wiped — you must re-enter the passcode to view your history again. Forget the passcode and the data is mathematically unrecoverable.
         </p>
       </div>
 
+      <div className="rounded-md border border-border p-3 text-xs space-y-1">
+        <div className="font-semibold">Sign out from other devices</div>
+        <p className="text-muted-foreground">
+          MailGuard accounts are <span className="font-semibold text-foreground">per-device</span> — there is no central server,
+          so other browsers / phones each hold their own encrypted copy. To revoke them:
+        </p>
+        <ol className="text-muted-foreground mt-1 list-decimal list-inside space-y-0.5">
+          <li><span className="font-semibold text-foreground">Change your passcode</span> below — old exported history files can no longer be decrypted with the previous passcode.</li>
+          <li>On the suspected device, open MailGuard → menu → <span className="font-semibold">Delete account + all data</span>.</li>
+          <li>If you can't reach the device, clear its browser site-data for this app.</li>
+        </ol>
+      </div>
+
       <div className="flex flex-wrap gap-2 pt-1">
+        <button onClick={onLockNow}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-md border border-border hover:bg-accent">
+          <Lock className="h-3.5 w-3.5" /> Lock now
+        </button>
+        <button onClick={onChangePasscode}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-md border border-border hover:bg-accent">
+          <KeyRound className="h-3.5 w-3.5" /> Change passcode
+        </button>
         <button onClick={onClearHistory}
                 className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-md border border-border hover:bg-accent">
           <Trash2 className="h-3.5 w-3.5" /> Clear scan history
@@ -335,6 +482,7 @@ function download(filename: string, mime: string, content: string) {
   const blob = new Blob([content], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url; a.download = filename; document.body.appendChild(a); a.click();
-  document.body.removeChild(a); URL.revokeObjectURL(url);
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
 }

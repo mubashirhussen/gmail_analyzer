@@ -1,4 +1,4 @@
-import { Menu, LayoutDashboard, History, ShieldAlert, BookOpen, Database, FileDown, UserCog, LogOut } from "lucide-react";
+import { Menu, LayoutDashboard, History, ShieldAlert, BookOpen, Database, FileDown, UserCog, LogOut, Lock, KeyRound } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -7,12 +7,14 @@ import {
 export type ViewKey = "dashboard" | "history" | "certin" | "tips" | "privacy";
 
 export function AppMenu({
-  username, email, onNavigate, onExportCSV, onExportPDF, onSwitch, onSignOut,
+  username, email, onNavigate, onExportCSV, onExportPDF,
+  onSwitch, onSignOut, onLockNow, onChangePasscode,
 }: {
   username: string; email: string;
   onNavigate: (v: ViewKey) => void;
   onExportCSV: () => void; onExportPDF: () => void;
   onSwitch: () => void; onSignOut: () => void;
+  onLockNow: () => void; onChangePasscode: () => void;
 }) {
   return (
     <DropdownMenu>
@@ -37,6 +39,8 @@ export function AppMenu({
         <DropdownMenuItem onClick={onExportCSV}><FileDown className="h-4 w-4" /> Export history (CSV)</DropdownMenuItem>
         <DropdownMenuItem onClick={onExportPDF}><FileDown className="h-4 w-4" /> Export history (PDF)</DropdownMenuItem>
         <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={onChangePasscode}><KeyRound className="h-4 w-4" /> Change passcode</DropdownMenuItem>
+        <DropdownMenuItem onClick={onLockNow}><Lock className="h-4 w-4" /> Lock now</DropdownMenuItem>
         <DropdownMenuItem onClick={onSwitch}><UserCog className="h-4 w-4" /> Switch / add account</DropdownMenuItem>
         <DropdownMenuItem onClick={onSignOut}><LogOut className="h-4 w-4" /> Sign out</DropdownMenuItem>
       </DropdownMenuContent>
