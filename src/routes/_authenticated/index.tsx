@@ -6,9 +6,10 @@ import {
   Eye, Loader2, Sparkles, Send, TrendingUp, Paperclip, X, FileText, Image as ImageIcon,
 } from "lucide-react";
 import { analyzeEmail, type EmailAnalysis } from "@/lib/analyze-email.functions";
+import { logScanEvent } from "@/lib/devices.functions";
 import { useAuth } from "@/lib/auth-context";
-import { AuthGate } from "@/components/auth-gate";
 import { AppMenu, type ViewKey } from "@/components/app-menu";
+import { Link } from "@tanstack/react-router";
 import {
   CertInPanel, ChangePasscodeDialog, DataPrivacyPanel, HistoryPanel, RecommendationModal, SecurityTipsPanel,
   exportHistoryCSV, exportHistoryPDF, type RecommendationContext,
@@ -38,7 +39,7 @@ async function fileToAttachment(file: File): Promise<Attachment> {
   return att;
 }
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
     meta: [
       { title: "MailGuard — AI Phishing & Fraud Email Analyzer" },
@@ -52,10 +53,10 @@ export const Route = createFileRoute("/")({
 
 function Page() {
   const { ready, session } = useAuth();
-  if (!ready) return <main className="min-h-screen" />;
-  if (!session) return <AuthGate />;
+  if (!ready || !session) return <main className="min-h-screen" />;
   return <Dashboard />;
 }
+
 
 const SAMPLE = {
   sender: "security-alert@paypa1-support.com",
@@ -97,6 +98,7 @@ function categoryLabel(c: string) {
 function Dashboard() {
   const { session, history, addHistory, clearHistory, deleteCurrentAccount, switchAccount, logout, lockNow, changePasscode } = useAuth();
   const analyze = useServerFn(analyzeEmail);
+  const logScan = useServerFn(logScanEvent);
   const [view, setView] = useState<ViewKey>("dashboard");
   const [sender, setSender] = useState("");
   const [subject, setSubject] = useState("");
@@ -154,6 +156,7 @@ function Dashboard() {
         suspiciousLinks: res.suspiciousLinks, recommendations: res.recommendations,
       };
       await addHistory(item);
+      logScan({ data: { verdict: res.verdict, riskScore: res.riskScore, subject, sender } }).catch(() => {});
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally { setLoading(false); }

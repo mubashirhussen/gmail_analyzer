@@ -1,4 +1,5 @@
-import { Menu, LayoutDashboard, History, ShieldAlert, BookOpen, Database, FileDown, UserCog, LogOut, Lock, KeyRound } from "lucide-react";
+import { Menu, LayoutDashboard, History, ShieldAlert, BookOpen, Database, FileDown, UserCog, LogOut, Lock, KeyRound, MonitorSmartphone, Activity } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -32,6 +33,8 @@ export function AppMenu({
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => onNavigate("dashboard")}><LayoutDashboard className="h-4 w-4" /> Dashboard</DropdownMenuItem>
         <DropdownMenuItem onClick={() => onNavigate("history")}><History className="h-4 w-4" /> Mail history</DropdownMenuItem>
+        <DropdownMenuItem asChild><Link to="/devices"><MonitorSmartphone className="h-4 w-4" /> Trusted devices</Link></DropdownMenuItem>
+        <DropdownMenuItem asChild><Link to="/timeline"><Activity className="h-4 w-4" /> Security timeline</Link></DropdownMenuItem>
         <DropdownMenuItem onClick={() => onNavigate("certin")}><ShieldAlert className="h-4 w-4" /> India CERT-In</DropdownMenuItem>
         <DropdownMenuItem onClick={() => onNavigate("tips")}><BookOpen className="h-4 w-4" /> Security tips</DropdownMenuItem>
         <DropdownMenuItem onClick={() => onNavigate("privacy")}><Database className="h-4 w-4" /> Data & privacy</DropdownMenuItem>
@@ -39,9 +42,9 @@ export function AppMenu({
         <DropdownMenuItem onClick={onExportCSV}><FileDown className="h-4 w-4" /> Export history (CSV)</DropdownMenuItem>
         <DropdownMenuItem onClick={onExportPDF}><FileDown className="h-4 w-4" /> Export history (PDF)</DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={onChangePasscode}><KeyRound className="h-4 w-4" /> Change passcode</DropdownMenuItem>
+        <DropdownMenuItem onClick={onChangePasscode}><KeyRound className="h-4 w-4" /> Change password</DropdownMenuItem>
         <DropdownMenuItem onClick={onLockNow}><Lock className="h-4 w-4" /> Lock now</DropdownMenuItem>
-        <DropdownMenuItem onClick={onSwitch}><UserCog className="h-4 w-4" /> Switch / add account</DropdownMenuItem>
+        <DropdownMenuItem onClick={onSwitch}><UserCog className="h-4 w-4" /> Switch account</DropdownMenuItem>
         <DropdownMenuItem onClick={onSignOut}><LogOut className="h-4 w-4" /> Sign out</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
