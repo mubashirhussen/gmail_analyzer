@@ -98,6 +98,7 @@ function categoryLabel(c: string) {
 function Dashboard() {
   const { session, history, addHistory, clearHistory, deleteCurrentAccount, switchAccount, logout, lockNow, changePasscode } = useAuth();
   const analyze = useServerFn(analyzeEmail);
+  const logScan = useServerFn(logScanEvent);
   const [view, setView] = useState<ViewKey>("dashboard");
   const [sender, setSender] = useState("");
   const [subject, setSubject] = useState("");
@@ -155,6 +156,7 @@ function Dashboard() {
         suspiciousLinks: res.suspiciousLinks, recommendations: res.recommendations,
       };
       await addHistory(item);
+      logScan({ data: { verdict: res.verdict, riskScore: res.riskScore, subject, sender } }).catch(() => {});
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally { setLoading(false); }
