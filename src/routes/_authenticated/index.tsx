@@ -53,10 +53,10 @@ export const Route = createFileRoute("/_authenticated/")({
 
 function Page() {
   const { ready, session } = useAuth();
-  if (!ready) return <main className="min-h-screen" />;
-  if (!session) return <AuthGate />;
+  if (!ready || !session) return <main className="min-h-screen" />;
   return <Dashboard />;
 }
+
 
 const SAMPLE = {
   sender: "security-alert@paypa1-support.com",
