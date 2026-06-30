@@ -6,9 +6,10 @@ import {
   Eye, Loader2, Sparkles, Send, TrendingUp, Paperclip, X, FileText, Image as ImageIcon,
 } from "lucide-react";
 import { analyzeEmail, type EmailAnalysis } from "@/lib/analyze-email.functions";
+import { logScanEvent } from "@/lib/devices.functions";
 import { useAuth } from "@/lib/auth-context";
-import { AuthGate } from "@/components/auth-gate";
 import { AppMenu, type ViewKey } from "@/components/app-menu";
+import { Link } from "@tanstack/react-router";
 import {
   CertInPanel, ChangePasscodeDialog, DataPrivacyPanel, HistoryPanel, RecommendationModal, SecurityTipsPanel,
   exportHistoryCSV, exportHistoryPDF, type RecommendationContext,
@@ -38,7 +39,7 @@ async function fileToAttachment(file: File): Promise<Attachment> {
   return att;
 }
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
     meta: [
       { title: "MailGuard — AI Phishing & Fraud Email Analyzer" },
