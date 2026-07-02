@@ -103,6 +103,7 @@ function Dashboard() {
   const analyze = useServerFn(analyzeEmail);
   const logScan = useServerFn(logScanEvent);
   const [view, setView] = useState<ViewKey>("dashboard");
+  const [channel, setChannel] = useState<"email" | "social">("email");
   const [sender, setSender] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
@@ -127,6 +128,9 @@ function Dashboard() {
     return { scanned: history.length, threats, links };
   }, [history]);
 
+  // Live link-intelligence on the pasted body (client-side, no AI call).
+  const linkScores: LinkScore[] = useMemo(() => scoreLinks(extractUrls(body)), [body]);
+
   async function onFilesPicked(files: FileList | null) {
     if (!files) return;
     setError(null);
@@ -146,6 +150,7 @@ function Dashboard() {
     try {
       const res = await analyze({
         data: {
+          channel,
           sender, subject, body,
           attachments: attachments.map(({ name, mimeType, dataBase64, textContent }) => ({ name, mimeType, dataBase64, textContent })),
         },
@@ -157,6 +162,7 @@ function Dashboard() {
         verdict: res.verdict, riskScore: res.riskScore, confidence: res.confidence,
         summary: res.summary, indicators: res.indicators,
         suspiciousLinks: res.suspiciousLinks, recommendations: res.recommendations,
+        attackCategory: res.attackCategory, channel,
       };
       await addHistory(item);
       logScan({ data: { verdict: res.verdict, riskScore: res.riskScore, subject, sender } }).catch(() => {});
@@ -165,7 +171,16 @@ function Dashboard() {
     } finally { setLoading(false); }
   }
 
-  function loadSample() { setSender(SAMPLE.sender); setSubject(SAMPLE.subject); setBody(SAMPLE.body); }
+  function loadSample() {
+    if (channel === "social") {
+      setSender("WhatsApp · +91 98••• •••21");
+      setSubject("(chat)");
+      setBody(`Hi beta, this is Aunty from Delhi. I sent ₹4,500 to your GPay by mistake trying to pay the maid. Please approve the collect request I just sent so it comes back to me — urgent! Don't tell mumma, she'll shout. Also here is my new UPI: aunty.rita@ybl bit.ly/gpay-refund`);
+    } else {
+      setSender(SAMPLE.sender); setSubject(SAMPLE.subject); setBody(SAMPLE.body);
+    }
+  }
+
 
   function openRec(rec: string) {
     if (!result) return;
