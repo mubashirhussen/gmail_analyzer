@@ -253,6 +253,7 @@ function Dashboard() {
         {view === "dashboard" && (
           <DashboardView
             protectionScore={protectionScore} stats={stats}
+            channel={channel} setChannel={setChannel}
             sender={sender} setSender={setSender}
             subject={subject} setSubject={setSubject}
             body={body} setBody={setBody}
@@ -260,8 +261,10 @@ function Dashboard() {
             error={error} loading={loading} onSubmit={onSubmit} loadSample={loadSample}
             result={result} openRec={openRec}
             history={history}
+            linkScores={linkScores}
           />
         )}
+
         {view === "history" && (
           <HistoryPanel history={history} onExportCSV={handleExportCSV} onExportPDF={handleExportPDF} />
         )}
@@ -293,6 +296,7 @@ function severityRank(s: string) {
 function DashboardView(props: {
   protectionScore: number;
   stats: { scanned: number; threats: number; links: number };
+  channel: "email" | "social"; setChannel: (v: "email" | "social") => void;
   sender: string; setSender: (v: string) => void;
   subject: string; setSubject: (v: string) => void;
   body: string; setBody: (v: string) => void;
@@ -304,12 +308,14 @@ function DashboardView(props: {
   result: EmailAnalysis | null;
   openRec: (rec: string) => void;
   history: HistoryItem[];
+  linkScores: LinkScore[];
 }) {
   const {
-    protectionScore, stats, sender, setSender, subject, setSubject, body, setBody,
+    protectionScore, stats, channel, setChannel, sender, setSender, subject, setSubject, body, setBody,
     attachments, onFilesPicked, removeAttachment, error, loading, onSubmit, loadSample,
-    result, openRec, history,
+    result, openRec, history, linkScores,
   } = props;
+
 
   return (
     <div className="grid grid-cols-12 gap-6">
