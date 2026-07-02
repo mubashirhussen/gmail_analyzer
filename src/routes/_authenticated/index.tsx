@@ -633,3 +633,88 @@ function AnalysisReport({ result, openRec }: { result: EmailAnalysis; openRec: (
     </div>
   );
 }
+
+/* ---------------- Attack category, Confidence dial, Link intel table ---------------- */
+
+const CATEGORY_META: Record<string, { label: string; color: string }> = {
+  credential_theft:   { label: "Credential Theft",     color: "var(--critical)" },
+  upi_fraud:          { label: "UPI Fraud",            color: "var(--critical)" },
+  bec:                { label: "Business Email Compromise", color: "var(--critical)" },
+  job_scam:           { label: "Job / Task Scam",      color: "var(--danger)" },
+  romance:            { label: "Romance Scam",         color: "var(--danger)" },
+  crypto_investment:  { label: "Crypto / Investment",  color: "var(--danger)" },
+  courier_delivery:   { label: "Courier / Delivery",   color: "var(--warn)" },
+  fake_kyc:           { label: "Fake KYC / OTP",       color: "var(--critical)" },
+  lottery_prize:      { label: "Lottery / Prize",      color: "var(--warn)" },
+  tech_support:       { label: "Tech Support Scam",    color: "var(--danger)" },
+  impersonation:      { label: "Impersonation",        color: "var(--danger)" },
+  malware_attachment: { label: "Malware Attachment",   color: "var(--critical)" },
+  extortion:          { label: "Extortion / Blackmail", color: "var(--critical)" },
+  other:              { label: "Other",                color: "var(--muted-foreground)" },
+};
+
+function AttackCategoryBadge({ value }: { value?: string }) {
+  const meta = CATEGORY_META[value ?? "other"] ?? CATEGORY_META.other;
+  return (
+    <span className="chip text-[10px] inline-flex items-center gap-1"
+          style={{ color: meta.color, borderColor: meta.color, background: `color-mix(in oklab, ${meta.color} 10%, transparent)` }}>
+      <Target className="h-3 w-3" /> {meta.label}
+    </span>
+  );
+}
+
+function ConfidenceDial({ value }: { value: number }) {
+  const clamped = Math.max(0, Math.min(100, value));
+  const color = clamped >= 75 ? "var(--safe)" : clamped >= 45 ? "var(--warn)" : "var(--danger)";
+  const r = 26; const c = 2 * Math.PI * r; const offset = c - (clamped / 100) * c;
+  return (
+    <div className="relative h-20 w-20" title={`AI confidence: ${clamped}%`}>
+      <svg viewBox="0 0 64 64" className="h-full w-full -rotate-90">
+        <circle cx="32" cy="32" r={r} fill="none" stroke="var(--border)" strokeWidth="6" />
+        <circle cx="32" cy="32" r={r} fill="none" stroke={color} strokeWidth="6"
+                strokeLinecap="round" strokeDasharray={c} strokeDashoffset={offset}
+                style={{ transition: "stroke-dashoffset 600ms ease, stroke 300ms ease", filter: `drop-shadow(0 0 4px ${color})` }} />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <div className="text-sm font-bold font-mono" style={{ color }}>{clamped}%</div>
+        <div className="text-[8px] font-mono uppercase tracking-wider text-muted-foreground">confidence</div>
+      </div>
+    </div>
+  );
+}
+
+function LinkIntelTable({ scores }: { scores: LinkScore[] }) {
+  return (
+    <div className="rounded-md border border-border bg-card/40">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+        <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono flex items-center gap-1.5">
+          <Link2 className="h-3.5 w-3.5" /> Link intelligence
+          <span className="normal-case tracking-normal opacity-70">· heuristic scoring, no network calls</span>
+        </div>
+        <span className="text-[10px] font-mono text-muted-foreground">{scores.length} URL{scores.length === 1 ? "" : "s"}</span>
+      </div>
+      <ul className="divide-y divide-border">
+        {scores.map((s, i) => {
+          const color = severityColor(s.severity);
+          return (
+            <li key={i} className="px-3 py-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="chip text-[10px]" style={{ color, borderColor: color }}>{s.severity} · {s.score}</span>
+                <code className="text-xs font-mono break-all" style={{ color: s.score > 0 ? "var(--warn)" : "var(--muted-foreground)" }}>{s.url}</code>
+              </div>
+              <ul className="mt-1 text-[11px] text-muted-foreground space-y-0.5">
+                {s.reasons.map((r, ri) => (
+                  <li key={ri} className="flex items-start gap-1.5">
+                    <span className="mt-1 h-1 w-1 rounded-full flex-shrink-0" style={{ background: r.weight > 0 ? color : "var(--muted-foreground)" }} />
+                    <span>{r.label}{r.weight > 0 ? ` (+${r.weight})` : ""}</span>
+                  </li>
+                ))}
+              </ul>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
