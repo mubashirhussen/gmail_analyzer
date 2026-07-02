@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import {
   Shield, ShieldAlert, ShieldCheck, Mail, Link2, AlertTriangle, Activity, Lock,
   Eye, Loader2, Sparkles, Send, TrendingUp, Paperclip, X, FileText, Image as ImageIcon,
+  MessageCircle, Target,
 } from "lucide-react";
 import { analyzeEmail, type EmailAnalysis } from "@/lib/analyze-email.functions";
 import { logScanEvent } from "@/lib/devices.functions";
@@ -14,7 +15,9 @@ import {
   CertInPanel, ChangePasscodeDialog, DataPrivacyPanel, HistoryPanel, RecommendationModal, SecurityTipsPanel,
   exportHistoryCSV, exportHistoryPDF, type RecommendationContext,
 } from "@/components/panels";
+import { extractUrls, scoreLinks, type LinkScore } from "@/lib/link-intel";
 import type { HistoryItem } from "@/lib/secure-store";
+
 
 type Attachment = {
   name: string; mimeType: string; dataBase64: string; textContent?: string; size: number;
