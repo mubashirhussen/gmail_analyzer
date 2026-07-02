@@ -540,14 +540,19 @@ function AnalysisReport({ result, openRec }: { result: EmailAnalysis; openRec: (
           <div>
             <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Verdict</div>
             <div className="text-xl font-bold tracking-tight" style={{ color: m.color }}>{m.label}</div>
+            <div className="mt-1.5">
+              <AttackCategoryBadge value={result.attackCategory} />
+            </div>
           </div>
         </div>
-        <div className="text-right">
-          <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Risk score</div>
-          <div className="text-3xl font-bold font-mono" style={{ color: m.color }}>
-            {result.riskScore}<span className="text-base text-muted-foreground">/100</span>
+        <div className="flex items-center gap-4">
+          <div className="text-right">
+            <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Risk score</div>
+            <div className="text-3xl font-bold font-mono" style={{ color: m.color }}>
+              {result.riskScore}<span className="text-base text-muted-foreground">/100</span>
+            </div>
           </div>
-          <div className="text-[11px] font-mono text-muted-foreground mt-0.5">confidence {result.confidence}%</div>
+          <ConfidenceDial value={result.confidence} />
         </div>
       </div>
 
@@ -560,6 +565,7 @@ function AnalysisReport({ result, openRec }: { result: EmailAnalysis; openRec: (
           <span>Safe</span><span>Suspicious</span><span>Phishing</span><span>Fraud</span>
         </div>
       </div>
+
 
       <p className="mt-5 text-sm leading-relaxed">{result.summary}</p>
 
