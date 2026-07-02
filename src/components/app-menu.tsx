@@ -1,4 +1,4 @@
-import { Menu, LayoutDashboard, History, ShieldAlert, BookOpen, Database, FileDown, UserCog, LogOut, Lock, KeyRound, MonitorSmartphone, Activity } from "lucide-react";
+import { Menu, LayoutDashboard, History, ShieldAlert, BookOpen, Database, FileDown, UserCog, LogOut, Lock, KeyRound, MonitorSmartphone, Activity, Brain, Radio } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
@@ -35,8 +35,11 @@ export function AppMenu({
         <DropdownMenuItem onClick={() => onNavigate("history")}><History className="h-4 w-4" /> Mail history</DropdownMenuItem>
         <DropdownMenuItem asChild><Link to="/devices"><MonitorSmartphone className="h-4 w-4" /> Trusted devices</Link></DropdownMenuItem>
         <DropdownMenuItem asChild><Link to="/timeline"><Activity className="h-4 w-4" /> Security timeline</Link></DropdownMenuItem>
+        <DropdownMenuItem asChild><Link to="/advisories"><Radio className="h-4 w-4" /> Live CERT-In advisories</Link></DropdownMenuItem>
+        <DropdownMenuItem asChild><Link to="/quiz"><Brain className="h-4 w-4" /> Awareness quiz & simulator</Link></DropdownMenuItem>
         <DropdownMenuItem onClick={() => onNavigate("certin")}><ShieldAlert className="h-4 w-4" /> India CERT-In</DropdownMenuItem>
         <DropdownMenuItem onClick={() => onNavigate("tips")}><BookOpen className="h-4 w-4" /> Security tips</DropdownMenuItem>
+
         <DropdownMenuItem onClick={() => onNavigate("privacy")}><Database className="h-4 w-4" /> Data & privacy</DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={onExportCSV}><FileDown className="h-4 w-4" /> Export history (CSV)</DropdownMenuItem>
