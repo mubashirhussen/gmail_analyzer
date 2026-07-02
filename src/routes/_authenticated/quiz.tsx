@@ -128,12 +128,12 @@ function Quiz({ uid: _uid, onDone }: { uid: string; onDone: (a: QuizAttempt) => 
   function next() {
     if (idx + 1 >= questions.length) {
       setDone(true);
-      onDone({ id: crypto.randomUUID(), at: Date.now(), score: correct + (picked === q.answer ? 0 : 0), total: questions.length, mode: "quiz" });
-      // Note: `correct` above may be stale by one; recompute properly:
+      onDone({ id: crypto.randomUUID(), at: Date.now(), score: correct, total: questions.length, mode: "quiz" });
     } else {
       setIdx((i) => i + 1); setPicked(null);
     }
   }
+
 
   function restart() {
     setRound((r) => r + 1);

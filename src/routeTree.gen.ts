@@ -13,7 +13,9 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedTimelineRouteImport } from './routes/_authenticated/timeline'
+import { Route as AuthenticatedQuizRouteImport } from './routes/_authenticated/quiz'
 import { Route as AuthenticatedDevicesRouteImport } from './routes/_authenticated/devices'
+import { Route as AuthenticatedAdvisoriesRouteImport } from './routes/_authenticated/advisories'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -34,21 +36,35 @@ const AuthenticatedTimelineRoute = AuthenticatedTimelineRouteImport.update({
   path: '/timeline',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedQuizRoute = AuthenticatedQuizRouteImport.update({
+  id: '/quiz',
+  path: '/quiz',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedDevicesRoute = AuthenticatedDevicesRouteImport.update({
   id: '/devices',
   path: '/devices',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAdvisoriesRoute = AuthenticatedAdvisoriesRouteImport.update({
+  id: '/advisories',
+  path: '/advisories',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/auth': typeof AuthRoute
+  '/advisories': typeof AuthenticatedAdvisoriesRoute
   '/devices': typeof AuthenticatedDevicesRoute
+  '/quiz': typeof AuthenticatedQuizRoute
   '/timeline': typeof AuthenticatedTimelineRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
+  '/advisories': typeof AuthenticatedAdvisoriesRoute
   '/devices': typeof AuthenticatedDevicesRoute
+  '/quiz': typeof AuthenticatedQuizRoute
   '/timeline': typeof AuthenticatedTimelineRoute
   '/': typeof AuthenticatedIndexRoute
 }
@@ -56,20 +72,24 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/advisories': typeof AuthenticatedAdvisoriesRoute
   '/_authenticated/devices': typeof AuthenticatedDevicesRoute
+  '/_authenticated/quiz': typeof AuthenticatedQuizRoute
   '/_authenticated/timeline': typeof AuthenticatedTimelineRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/devices' | '/timeline'
+  fullPaths: '/' | '/auth' | '/advisories' | '/devices' | '/quiz' | '/timeline'
   fileRoutesByTo: FileRoutesByTo
-  to: '/auth' | '/devices' | '/timeline' | '/'
+  to: '/auth' | '/advisories' | '/devices' | '/quiz' | '/timeline' | '/'
   id:
     | '__root__'
     | '/_authenticated'
     | '/auth'
+    | '/_authenticated/advisories'
     | '/_authenticated/devices'
+    | '/_authenticated/quiz'
     | '/_authenticated/timeline'
     | '/_authenticated/'
   fileRoutesById: FileRoutesById
@@ -109,6 +129,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTimelineRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/quiz': {
+      id: '/_authenticated/quiz'
+      path: '/quiz'
+      fullPath: '/quiz'
+      preLoaderRoute: typeof AuthenticatedQuizRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/devices': {
       id: '/_authenticated/devices'
       path: '/devices'
@@ -116,17 +143,28 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDevicesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/advisories': {
+      id: '/_authenticated/advisories'
+      path: '/advisories'
+      fullPath: '/advisories'
+      preLoaderRoute: typeof AuthenticatedAdvisoriesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAdvisoriesRoute: typeof AuthenticatedAdvisoriesRoute
   AuthenticatedDevicesRoute: typeof AuthenticatedDevicesRoute
+  AuthenticatedQuizRoute: typeof AuthenticatedQuizRoute
   AuthenticatedTimelineRoute: typeof AuthenticatedTimelineRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAdvisoriesRoute: AuthenticatedAdvisoriesRoute,
   AuthenticatedDevicesRoute: AuthenticatedDevicesRoute,
+  AuthenticatedQuizRoute: AuthenticatedQuizRoute,
   AuthenticatedTimelineRoute: AuthenticatedTimelineRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
 }
