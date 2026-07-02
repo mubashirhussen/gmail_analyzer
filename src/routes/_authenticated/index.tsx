@@ -341,33 +341,57 @@ function DashboardView(props: {
 
       <section className="col-span-12 lg:col-span-6 space-y-4">
         <div className="panel p-6 scanline">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
             <div>
               <h2 className="text-lg font-semibold flex items-center gap-2">
                 <Sparkles className="h-4 w-4" style={{ color: "var(--safe)" }} />
-                Analyze an email
+                {channel === "social" ? "Analyze a message / DM" : "Analyze an email"}
               </h2>
               <p className="text-xs text-muted-foreground mt-1 font-mono">
-                Paste or forward. Stored locally, encrypted with your passcode.
+                {channel === "social"
+                  ? "Paste WhatsApp / Instagram / Telegram / SMS content. India-scam patterns applied."
+                  : "Paste or forward. Stored locally, encrypted with your passcode."}
               </p>
             </div>
-            <button type="button" onClick={loadSample}
-                    className="text-xs font-mono px-2.5 py-1 rounded-md border border-border hover:bg-accent transition">
-              Load sample
-            </button>
+            <div className="flex items-center gap-2">
+              <div className="inline-flex rounded-md border border-border p-0.5 text-xs font-mono">
+                <button type="button" onClick={() => setChannel("email")}
+                  className={`px-2.5 py-1 rounded inline-flex items-center gap-1 ${channel === "email" ? "bg-accent" : "hover:bg-accent/50"}`}>
+                  <Mail className="h-3 w-3" /> Email
+                </button>
+                <button type="button" onClick={() => setChannel("social")}
+                  className={`px-2.5 py-1 rounded inline-flex items-center gap-1 ${channel === "social" ? "bg-accent" : "hover:bg-accent/50"}`}>
+                  <MessageCircle className="h-3 w-3" /> Social / SMS
+                </button>
+              </div>
+              <button type="button" onClick={loadSample}
+                      className="text-xs font-mono px-2.5 py-1 rounded-md border border-border hover:bg-accent transition">
+                Load sample
+              </button>
+            </div>
           </div>
 
           <form onSubmit={onSubmit} className="space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Field label="From" value={sender} onChange={setSender} placeholder="alerts@bank-update.co" />
-              <Field label="Subject" value={subject} onChange={setSubject} placeholder="Verify your account now" />
+              <Field label={channel === "social" ? "Sender / channel" : "From"}
+                     value={sender} onChange={setSender}
+                     placeholder={channel === "social" ? "WhatsApp · +91 98••• •••21" : "alerts@bank-update.co"} />
+              <Field label={channel === "social" ? "Context (optional)" : "Subject"}
+                     value={subject} onChange={setSubject}
+                     placeholder={channel === "social" ? "e.g. Telegram group DM" : "Verify your account now"} />
             </div>
             <div>
-              <label className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono">Email body</label>
+              <label className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono">
+                {channel === "social" ? "Message content" : "Email body"}
+              </label>
               <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={10}
-                placeholder="Paste the full email content here… (or attach a screenshot / PDF below)"
+                placeholder={channel === "social"
+                  ? "Paste the WhatsApp / SMS / Telegram / Instagram message here…"
+                  : "Paste the full email content here… (or attach a screenshot / PDF below)"}
                 className="mt-1 w-full rounded-md bg-input/60 border border-border px-3 py-2.5 text-sm font-mono leading-relaxed outline-none focus:ring-2 focus:ring-ring/60 focus:border-ring resize-y" />
             </div>
+
+            {linkScores.length > 0 && <LinkIntelTable scores={linkScores} />}
 
             <div>
               <div className="flex items-center justify-between">
@@ -408,6 +432,7 @@ function DashboardView(props: {
                    style={{ borderColor: "var(--critical)", color: "var(--critical)", background: "oklch(0.20 0.04 25 / 30%)" }}>
                 {error}
               </div>
+
             )}
 
             <button type="submit" disabled={loading || (!body.trim() && attachments.length === 0)}
