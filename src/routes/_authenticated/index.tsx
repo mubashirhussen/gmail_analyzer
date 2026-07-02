@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import {
   Shield, ShieldAlert, ShieldCheck, Mail, Link2, AlertTriangle, Activity, Lock,
   Eye, Loader2, Sparkles, Send, TrendingUp, Paperclip, X, FileText, Image as ImageIcon,
+  MessageCircle, Target,
 } from "lucide-react";
 import { analyzeEmail, type EmailAnalysis } from "@/lib/analyze-email.functions";
 import { logScanEvent } from "@/lib/devices.functions";
@@ -14,7 +15,9 @@ import {
   CertInPanel, ChangePasscodeDialog, DataPrivacyPanel, HistoryPanel, RecommendationModal, SecurityTipsPanel,
   exportHistoryCSV, exportHistoryPDF, type RecommendationContext,
 } from "@/components/panels";
+import { extractUrls, scoreLinks, type LinkScore } from "@/lib/link-intel";
 import type { HistoryItem } from "@/lib/secure-store";
+
 
 type Attachment = {
   name: string; mimeType: string; dataBase64: string; textContent?: string; size: number;
@@ -100,6 +103,7 @@ function Dashboard() {
   const analyze = useServerFn(analyzeEmail);
   const logScan = useServerFn(logScanEvent);
   const [view, setView] = useState<ViewKey>("dashboard");
+  const [channel, setChannel] = useState<"email" | "social">("email");
   const [sender, setSender] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
@@ -124,6 +128,9 @@ function Dashboard() {
     return { scanned: history.length, threats, links };
   }, [history]);
 
+  // Live link-intelligence on the pasted body (client-side, no AI call).
+  const linkScores: LinkScore[] = useMemo(() => scoreLinks(extractUrls(body)), [body]);
+
   async function onFilesPicked(files: FileList | null) {
     if (!files) return;
     setError(null);
@@ -143,6 +150,7 @@ function Dashboard() {
     try {
       const res = await analyze({
         data: {
+          channel,
           sender, subject, body,
           attachments: attachments.map(({ name, mimeType, dataBase64, textContent }) => ({ name, mimeType, dataBase64, textContent })),
         },
@@ -154,6 +162,7 @@ function Dashboard() {
         verdict: res.verdict, riskScore: res.riskScore, confidence: res.confidence,
         summary: res.summary, indicators: res.indicators,
         suspiciousLinks: res.suspiciousLinks, recommendations: res.recommendations,
+        attackCategory: res.attackCategory, channel,
       };
       await addHistory(item);
       logScan({ data: { verdict: res.verdict, riskScore: res.riskScore, subject, sender } }).catch(() => {});
@@ -162,7 +171,16 @@ function Dashboard() {
     } finally { setLoading(false); }
   }
 
-  function loadSample() { setSender(SAMPLE.sender); setSubject(SAMPLE.subject); setBody(SAMPLE.body); }
+  function loadSample() {
+    if (channel === "social") {
+      setSender("WhatsApp · +91 98••• •••21");
+      setSubject("(chat)");
+      setBody(`Hi beta, this is Aunty from Delhi. I sent ₹4,500 to your GPay by mistake trying to pay the maid. Please approve the collect request I just sent so it comes back to me — urgent! Don't tell mumma, she'll shout. Also here is my new UPI: aunty.rita@ybl bit.ly/gpay-refund`);
+    } else {
+      setSender(SAMPLE.sender); setSubject(SAMPLE.subject); setBody(SAMPLE.body);
+    }
+  }
+
 
   function openRec(rec: string) {
     if (!result) return;
@@ -235,6 +253,7 @@ function Dashboard() {
         {view === "dashboard" && (
           <DashboardView
             protectionScore={protectionScore} stats={stats}
+            channel={channel} setChannel={setChannel}
             sender={sender} setSender={setSender}
             subject={subject} setSubject={setSubject}
             body={body} setBody={setBody}
@@ -242,8 +261,10 @@ function Dashboard() {
             error={error} loading={loading} onSubmit={onSubmit} loadSample={loadSample}
             result={result} openRec={openRec}
             history={history}
+            linkScores={linkScores}
           />
         )}
+
         {view === "history" && (
           <HistoryPanel history={history} onExportCSV={handleExportCSV} onExportPDF={handleExportPDF} />
         )}
@@ -275,6 +296,7 @@ function severityRank(s: string) {
 function DashboardView(props: {
   protectionScore: number;
   stats: { scanned: number; threats: number; links: number };
+  channel: "email" | "social"; setChannel: (v: "email" | "social") => void;
   sender: string; setSender: (v: string) => void;
   subject: string; setSubject: (v: string) => void;
   body: string; setBody: (v: string) => void;
@@ -286,12 +308,14 @@ function DashboardView(props: {
   result: EmailAnalysis | null;
   openRec: (rec: string) => void;
   history: HistoryItem[];
+  linkScores: LinkScore[];
 }) {
   const {
-    protectionScore, stats, sender, setSender, subject, setSubject, body, setBody,
+    protectionScore, stats, channel, setChannel, sender, setSender, subject, setSubject, body, setBody,
     attachments, onFilesPicked, removeAttachment, error, loading, onSubmit, loadSample,
-    result, openRec, history,
+    result, openRec, history, linkScores,
   } = props;
+
 
   return (
     <div className="grid grid-cols-12 gap-6">
@@ -317,33 +341,57 @@ function DashboardView(props: {
 
       <section className="col-span-12 lg:col-span-6 space-y-4">
         <div className="panel p-6 scanline">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
             <div>
               <h2 className="text-lg font-semibold flex items-center gap-2">
                 <Sparkles className="h-4 w-4" style={{ color: "var(--safe)" }} />
-                Analyze an email
+                {channel === "social" ? "Analyze a message / DM" : "Analyze an email"}
               </h2>
               <p className="text-xs text-muted-foreground mt-1 font-mono">
-                Paste or forward. Stored locally, encrypted with your passcode.
+                {channel === "social"
+                  ? "Paste WhatsApp / Instagram / Telegram / SMS content. India-scam patterns applied."
+                  : "Paste or forward. Stored locally, encrypted with your passcode."}
               </p>
             </div>
-            <button type="button" onClick={loadSample}
-                    className="text-xs font-mono px-2.5 py-1 rounded-md border border-border hover:bg-accent transition">
-              Load sample
-            </button>
+            <div className="flex items-center gap-2">
+              <div className="inline-flex rounded-md border border-border p-0.5 text-xs font-mono">
+                <button type="button" onClick={() => setChannel("email")}
+                  className={`px-2.5 py-1 rounded inline-flex items-center gap-1 ${channel === "email" ? "bg-accent" : "hover:bg-accent/50"}`}>
+                  <Mail className="h-3 w-3" /> Email
+                </button>
+                <button type="button" onClick={() => setChannel("social")}
+                  className={`px-2.5 py-1 rounded inline-flex items-center gap-1 ${channel === "social" ? "bg-accent" : "hover:bg-accent/50"}`}>
+                  <MessageCircle className="h-3 w-3" /> Social / SMS
+                </button>
+              </div>
+              <button type="button" onClick={loadSample}
+                      className="text-xs font-mono px-2.5 py-1 rounded-md border border-border hover:bg-accent transition">
+                Load sample
+              </button>
+            </div>
           </div>
 
           <form onSubmit={onSubmit} className="space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Field label="From" value={sender} onChange={setSender} placeholder="alerts@bank-update.co" />
-              <Field label="Subject" value={subject} onChange={setSubject} placeholder="Verify your account now" />
+              <Field label={channel === "social" ? "Sender / channel" : "From"}
+                     value={sender} onChange={setSender}
+                     placeholder={channel === "social" ? "WhatsApp · +91 98••• •••21" : "alerts@bank-update.co"} />
+              <Field label={channel === "social" ? "Context (optional)" : "Subject"}
+                     value={subject} onChange={setSubject}
+                     placeholder={channel === "social" ? "e.g. Telegram group DM" : "Verify your account now"} />
             </div>
             <div>
-              <label className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono">Email body</label>
+              <label className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono">
+                {channel === "social" ? "Message content" : "Email body"}
+              </label>
               <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={10}
-                placeholder="Paste the full email content here… (or attach a screenshot / PDF below)"
+                placeholder={channel === "social"
+                  ? "Paste the WhatsApp / SMS / Telegram / Instagram message here…"
+                  : "Paste the full email content here… (or attach a screenshot / PDF below)"}
                 className="mt-1 w-full rounded-md bg-input/60 border border-border px-3 py-2.5 text-sm font-mono leading-relaxed outline-none focus:ring-2 focus:ring-ring/60 focus:border-ring resize-y" />
             </div>
+
+            {linkScores.length > 0 && <LinkIntelTable scores={linkScores} />}
 
             <div>
               <div className="flex items-center justify-between">
@@ -384,6 +432,7 @@ function DashboardView(props: {
                    style={{ borderColor: "var(--critical)", color: "var(--critical)", background: "oklch(0.20 0.04 25 / 30%)" }}>
                 {error}
               </div>
+
             )}
 
             <button type="submit" disabled={loading || (!body.trim() && attachments.length === 0)}
@@ -491,14 +540,19 @@ function AnalysisReport({ result, openRec }: { result: EmailAnalysis; openRec: (
           <div>
             <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Verdict</div>
             <div className="text-xl font-bold tracking-tight" style={{ color: m.color }}>{m.label}</div>
+            <div className="mt-1.5">
+              <AttackCategoryBadge value={result.attackCategory} />
+            </div>
           </div>
         </div>
-        <div className="text-right">
-          <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Risk score</div>
-          <div className="text-3xl font-bold font-mono" style={{ color: m.color }}>
-            {result.riskScore}<span className="text-base text-muted-foreground">/100</span>
+        <div className="flex items-center gap-4">
+          <div className="text-right">
+            <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Risk score</div>
+            <div className="text-3xl font-bold font-mono" style={{ color: m.color }}>
+              {result.riskScore}<span className="text-base text-muted-foreground">/100</span>
+            </div>
           </div>
-          <div className="text-[11px] font-mono text-muted-foreground mt-0.5">confidence {result.confidence}%</div>
+          <ConfidenceDial value={result.confidence} />
         </div>
       </div>
 
@@ -511,6 +565,7 @@ function AnalysisReport({ result, openRec }: { result: EmailAnalysis; openRec: (
           <span>Safe</span><span>Suspicious</span><span>Phishing</span><span>Fraud</span>
         </div>
       </div>
+
 
       <p className="mt-5 text-sm leading-relaxed">{result.summary}</p>
 
@@ -578,3 +633,88 @@ function AnalysisReport({ result, openRec }: { result: EmailAnalysis; openRec: (
     </div>
   );
 }
+
+/* ---------------- Attack category, Confidence dial, Link intel table ---------------- */
+
+const CATEGORY_META: Record<string, { label: string; color: string }> = {
+  credential_theft:   { label: "Credential Theft",     color: "var(--critical)" },
+  upi_fraud:          { label: "UPI Fraud",            color: "var(--critical)" },
+  bec:                { label: "Business Email Compromise", color: "var(--critical)" },
+  job_scam:           { label: "Job / Task Scam",      color: "var(--danger)" },
+  romance:            { label: "Romance Scam",         color: "var(--danger)" },
+  crypto_investment:  { label: "Crypto / Investment",  color: "var(--danger)" },
+  courier_delivery:   { label: "Courier / Delivery",   color: "var(--warn)" },
+  fake_kyc:           { label: "Fake KYC / OTP",       color: "var(--critical)" },
+  lottery_prize:      { label: "Lottery / Prize",      color: "var(--warn)" },
+  tech_support:       { label: "Tech Support Scam",    color: "var(--danger)" },
+  impersonation:      { label: "Impersonation",        color: "var(--danger)" },
+  malware_attachment: { label: "Malware Attachment",   color: "var(--critical)" },
+  extortion:          { label: "Extortion / Blackmail", color: "var(--critical)" },
+  other:              { label: "Other",                color: "var(--muted-foreground)" },
+};
+
+function AttackCategoryBadge({ value }: { value?: string }) {
+  const meta = CATEGORY_META[value ?? "other"] ?? CATEGORY_META.other;
+  return (
+    <span className="chip text-[10px] inline-flex items-center gap-1"
+          style={{ color: meta.color, borderColor: meta.color, background: `color-mix(in oklab, ${meta.color} 10%, transparent)` }}>
+      <Target className="h-3 w-3" /> {meta.label}
+    </span>
+  );
+}
+
+function ConfidenceDial({ value }: { value: number }) {
+  const clamped = Math.max(0, Math.min(100, value));
+  const color = clamped >= 75 ? "var(--safe)" : clamped >= 45 ? "var(--warn)" : "var(--danger)";
+  const r = 26; const c = 2 * Math.PI * r; const offset = c - (clamped / 100) * c;
+  return (
+    <div className="relative h-20 w-20" title={`AI confidence: ${clamped}%`}>
+      <svg viewBox="0 0 64 64" className="h-full w-full -rotate-90">
+        <circle cx="32" cy="32" r={r} fill="none" stroke="var(--border)" strokeWidth="6" />
+        <circle cx="32" cy="32" r={r} fill="none" stroke={color} strokeWidth="6"
+                strokeLinecap="round" strokeDasharray={c} strokeDashoffset={offset}
+                style={{ transition: "stroke-dashoffset 600ms ease, stroke 300ms ease", filter: `drop-shadow(0 0 4px ${color})` }} />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <div className="text-sm font-bold font-mono" style={{ color }}>{clamped}%</div>
+        <div className="text-[8px] font-mono uppercase tracking-wider text-muted-foreground">confidence</div>
+      </div>
+    </div>
+  );
+}
+
+function LinkIntelTable({ scores }: { scores: LinkScore[] }) {
+  return (
+    <div className="rounded-md border border-border bg-card/40">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+        <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono flex items-center gap-1.5">
+          <Link2 className="h-3.5 w-3.5" /> Link intelligence
+          <span className="normal-case tracking-normal opacity-70">· heuristic scoring, no network calls</span>
+        </div>
+        <span className="text-[10px] font-mono text-muted-foreground">{scores.length} URL{scores.length === 1 ? "" : "s"}</span>
+      </div>
+      <ul className="divide-y divide-border">
+        {scores.map((s, i) => {
+          const color = severityColor(s.severity);
+          return (
+            <li key={i} className="px-3 py-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="chip text-[10px]" style={{ color, borderColor: color }}>{s.severity} · {s.score}</span>
+                <code className="text-xs font-mono break-all" style={{ color: s.score > 0 ? "var(--warn)" : "var(--muted-foreground)" }}>{s.url}</code>
+              </div>
+              <ul className="mt-1 text-[11px] text-muted-foreground space-y-0.5">
+                {s.reasons.map((r, ri) => (
+                  <li key={ri} className="flex items-start gap-1.5">
+                    <span className="mt-1 h-1 w-1 rounded-full flex-shrink-0" style={{ background: r.weight > 0 ? color : "var(--muted-foreground)" }} />
+                    <span>{r.label}{r.weight > 0 ? ` (+${r.weight})` : ""}</span>
+                  </li>
+                ))}
+              </ul>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
