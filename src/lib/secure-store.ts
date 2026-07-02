@@ -28,7 +28,10 @@ export type HistoryItem = {
   indicators: { category: string; severity: string; detail: string }[];
   suspiciousLinks: { url: string; reason: string; risk: string }[];
   recommendations: string[];
+  attackCategory?: string;
+  channel?: "email" | "social";
 };
+
 
 const ACCOUNTS_KEY = "mg.accounts.v1";
 const CURRENT_KEY = "mg.current.v1";
