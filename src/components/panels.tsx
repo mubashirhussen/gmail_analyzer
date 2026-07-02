@@ -225,6 +225,8 @@ export function CertInPanel() {
           Incidents: <code className="font-mono">incident@cert-in.org.in</code></li>
         <li className="flex items-start gap-2"><Phone className="h-3.5 w-3.5 mt-0.5" style={{ color: "var(--safe)" }} />
           Cyber-crime helpline: <code className="font-mono">1930</code> (24×7)</li>
+        <li className="flex items-start gap-2"><Phone className="h-3.5 w-3.5 mt-0.5" style={{ color: "var(--danger)" }} />
+          CERT-In direct emergency: <a className="font-mono underline" href="tel:+911122902657">+91-11-2290-2657</a></li>
         <li className="flex items-start gap-2"><Globe2 className="h-3.5 w-3.5 mt-0.5" style={{ color: "var(--safe)" }} />
           File a complaint:&nbsp;
           <a className="underline" href="https://cybercrime.gov.in" target="_blank" rel="noreferrer">cybercrime.gov.in</a>
