@@ -6,23 +6,43 @@ import { createLovableAiGatewayProvider } from "./ai-gateway.server";
 const AttachmentSchema = z.object({
   name: z.string().max(300),
   mimeType: z.string().max(200),
-  dataBase64: z.string().min(1).max(8_000_000), // ~6MB binary
+  dataBase64: z.string().min(1).max(8_000_000),
   textContent: z.string().max(200_000).optional(),
 });
 
+export const ATTACK_CATEGORIES = [
+  "credential_theft",
+  "upi_fraud",
+  "bec",
+  "job_scam",
+  "romance",
+  "crypto_investment",
+  "courier_delivery",
+  "fake_kyc",
+  "lottery_prize",
+  "tech_support",
+  "impersonation",
+  "malware_attachment",
+  "extortion",
+  "other",
+] as const;
+export type AttackCategory = typeof ATTACK_CATEGORIES[number];
+
 const InputSchema = z.object({
+  channel: z.enum(["email", "social"]).default("email"),
   sender: z.string().max(500).optional().default(""),
   subject: z.string().max(1000).optional().default(""),
   body: z.string().max(40000).optional().default(""),
   attachments: z.array(AttachmentSchema).max(5).optional().default([]),
 }).refine((v) => v.body.trim().length > 0 || (v.attachments?.length ?? 0) > 0, {
-  message: "Provide email text or at least one attachment.",
+  message: "Provide message text or at least one attachment.",
 });
 
 const AnalysisSchema = z.object({
   verdict: z.enum(["safe", "suspicious", "phishing", "fraud"]),
   riskScore: z.number().min(0).max(100),
   confidence: z.number().min(0).max(100),
+  attackCategory: z.enum(ATTACK_CATEGORIES).default("other"),
   summary: z.string(),
   indicators: z.array(
     z.object({
@@ -43,25 +63,39 @@ const AnalysisSchema = z.object({
 
 export type EmailAnalysis = z.infer<typeof AnalysisSchema>;
 
-const SYSTEM = `You are MailGuard, an elite email security analyst. Inspect forwarded emails (text and any attached screenshots / PDFs / documents) and decide whether they are phishing, fraud, scam, or safe.
+const SYSTEM_EMAIL = `You are MailGuard, an elite email security analyst. Inspect forwarded emails (text and any attached screenshots / PDFs / documents) and decide whether they are phishing, fraud, scam, or safe.
 
-Apply rigorous analysis:
-- Sender spoofing, homoglyph / look-alike domains.
-- Urgency, fear, social engineering.
-- Credential / OTP / payment / KYC harvesting.
-- Every suspicious URL: shorteners, IP URLs, mismatched display text, unusual TLDs.
-- Impersonation of banks, courier, tax, executives, IT, HR.
-- Attachment-based threats (invoices, .zip, .html, macros).
-- Financial fraud: lottery, inheritance, crypto, romance, advance fee, BEC, fake invoice.
+Apply rigorous analysis: sender spoofing, homoglyph / look-alike domains, urgency & fear, credential / OTP / payment / KYC harvesting, every suspicious URL (shorteners, IP URLs, mismatched display text, unusual TLDs), impersonation of banks/courier/tax/executives/IT/HR, attachment-based threats, financial fraud (BEC, fake invoice, lottery, inheritance, crypto).
 
-Score 0-100 (0 safe, 100 definitely malicious):
-- 0-20 safe · 21-50 suspicious · 51-80 phishing · 81-100 fraud.
+Score 0-100 (0 safe, 100 definitely malicious): 0-20 safe · 21-50 suspicious · 51-80 phishing · 81-100 fraud.`;
+
+const SYSTEM_SOCIAL = `You are MailGuard, an elite social-media & messaging fraud analyst focused on India. Inspect pasted WhatsApp / Instagram / Telegram / SMS / DM content (and any attached screenshots) and decide whether it is phishing, fraud, scam, or safe.
+
+Look especially for India-specific patterns:
+- UPI collect-request scams ("I sent by mistake, approve to refund")
+- Fake India Post / DHL / BlueDart / customs fee SMS
+- Task-based job & investment scams ("rate hotels, earn ₹3000/day")
+- WhatsApp/Telegram stock-tip groups with guaranteed returns / crypto-only deposits
+- Fake KYC / RBI / bank / income-tax OTP requests
+- Deepfake voice/video relative-in-distress
+- Loan-app harassment & fake tax refunds
+- Malicious short links (bit.ly, rebrand.ly), unknown QR codes
+- Impersonation of GPay/PhonePe/Paytm/SBI/HDFC/ICICI/Amazon/Flipkart
+- Romance / matrimony / gift-parcel-stuck-at-customs scams
+
+Score 0-100 (0 safe, 100 definitely malicious): 0-20 safe · 21-50 suspicious · 51-80 phishing · 81-100 fraud.`;
+
+const SHARED_TAIL = `
+
+Also classify the attack into ONE of these attackCategory values (pick the closest):
+credential_theft, upi_fraud, bec, job_scam, romance, crypto_investment, courier_delivery, fake_kyc, lottery_prize, tech_support, impersonation, malware_attachment, extortion, other.
 
 Return ONLY a single JSON object, no prose, no markdown fences. Shape:
 {
   "verdict": "safe"|"suspicious"|"phishing"|"fraud",
   "riskScore": number,
   "confidence": number,
+  "attackCategory": string,
   "summary": string,
   "indicators": [{"category": string, "severity": "low"|"medium"|"high"|"critical", "detail": string}],
   "suspiciousLinks": [{"url": string, "reason": string, "risk": "low"|"medium"|"high"|"critical"}],
@@ -86,16 +120,26 @@ export const analyzeEmail = createServerFn({ method: "POST" })
     if (!key) throw new Error("Missing LOVABLE_API_KEY");
 
     const gateway = createLovableAiGatewayProvider(key);
+    const system = (data.channel === "social" ? SYSTEM_SOCIAL : SYSTEM_EMAIL) + SHARED_TAIL;
 
     const content: Array<Record<string, unknown>> = [];
-    const textBlock = `Analyze this email:
+    const header = data.channel === "social"
+      ? `Analyze this social-media / messaging content:
+
+CHANNEL / SENDER: ${data.sender || "(not provided)"}
+CONTEXT / SUBJECT: ${data.subject || "(not provided)"}
+
+MESSAGE:
+${data.body || "(none — see attachments)"}`
+      : `Analyze this email:
 
 FROM: ${data.sender || "(not provided)"}
 SUBJECT: ${data.subject || "(not provided)"}
 
 BODY:
 ${data.body || "(none — see attachments)"}`;
-    content.push({ type: "text", text: textBlock });
+
+    content.push({ type: "text", text: header });
 
     for (const att of data.attachments) {
       const dataUrl = `data:${att.mimeType};base64,${att.dataBase64}`;
@@ -107,7 +151,6 @@ ${data.body || "(none — see attachments)"}`;
           text: `\n--- Attached file: ${att.name} (${att.mimeType}) ---\n${att.textContent.slice(0, 60000)}`,
         });
       } else {
-        // PDFs and other binary docs as file parts
         content.push({
           type: "file",
           data: dataUrl,
@@ -120,7 +163,7 @@ ${data.body || "(none — see attachments)"}`;
     try {
       const { text } = await generateText({
         model: gateway("google/gemini-3-flash-preview"),
-        system: SYSTEM,
+        system,
         messages: [{ role: "user", content: content as never }],
       });
       const parsed = extractJson(text);
