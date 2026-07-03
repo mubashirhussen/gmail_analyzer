@@ -332,11 +332,16 @@ function DashboardView(props: {
   openRec: (rec: string) => void;
   history: HistoryItem[];
   linkScores: LinkScore[];
+  intel: ThreatIntelResult | null;
+  intelLoading: boolean;
+  intelError: string | null;
+  onRunIntel: () => void;
 }) {
   const {
     protectionScore, stats, channel, setChannel, sender, setSender, subject, setSubject, body, setBody,
     attachments, onFilesPicked, removeAttachment, error, loading, onSubmit, loadSample,
     result, openRec, history, linkScores,
+    intel, intelLoading, intelError, onRunIntel,
   } = props;
 
 
