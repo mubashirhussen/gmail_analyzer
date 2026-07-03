@@ -115,6 +115,9 @@ function Dashboard() {
   const [result, setResult] = useState<EmailAnalysis | null>(null);
   const [recCtx, setRecCtx] = useState<RecommendationContext | null>(null);
   const [pwOpen, setPwOpen] = useState(false);
+  const [intel, setIntel] = useState<ThreatIntelResult | null>(null);
+  const [intelLoading, setIntelLoading] = useState(false);
+  const [intelError, setIntelError] = useState<string | null>(null);
 
   const account = session!.account;
 
