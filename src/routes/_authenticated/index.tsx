@@ -719,23 +719,58 @@ function ConfidenceDial({ value }: { value: number }) {
   );
 }
 
-function LinkIntelTable({ scores }: { scores: LinkScore[] }) {
+function LinkIntelTable({
+  scores, onRunIntel, intelLoading, intelError, intel,
+}: {
+  scores: LinkScore[];
+  onRunIntel: () => void;
+  intelLoading: boolean;
+  intelError: string | null;
+  intel: ThreatIntelResult | null;
+}) {
+  const intelByUrl = useMemo(() => {
+    const m = new Map<string, UrlIntel>();
+    intel?.results.forEach((r) => m.set(r.url, r));
+    return m;
+  }, [intel]);
+
   return (
     <div className="rounded-md border border-border bg-card/40">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border gap-2">
         <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono flex items-center gap-1.5">
           <Link2 className="h-3.5 w-3.5" /> Link intelligence
-          <span className="normal-case tracking-normal opacity-70">· heuristic scoring, no network calls</span>
+          <span className="normal-case tracking-normal opacity-70">
+            {intel ? `· live · ${intel.feedsUsed.join(", ") || "no feeds"}` : "· heuristic first · run live check for RDAP, crt.sh, URLScan, DNS, phishing feeds"}
+          </span>
         </div>
-        <span className="text-[10px] font-mono text-muted-foreground">{scores.length} URL{scores.length === 1 ? "" : "s"}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-mono text-muted-foreground">{scores.length} URL{scores.length === 1 ? "" : "s"}</span>
+          <button type="button" onClick={onRunIntel} disabled={intelLoading}
+            className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-mono hover:bg-accent transition disabled:opacity-50">
+            {intelLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Radar className="h-3 w-3" />}
+            {intelLoading ? "Checking…" : intel ? "Re-check" : "Run live check"}
+          </button>
+        </div>
       </div>
+      {intelError && (
+        <div className="px-3 py-2 border-b border-border text-[11px] font-mono" style={{ color: "var(--danger)" }}>
+          {intelError}
+        </div>
+      )}
       <ul className="divide-y divide-border">
         {scores.map((s, i) => {
           const color = severityColor(s.severity);
+          const live = intelByUrl.get(s.url);
           return (
             <li key={i} className="px-3 py-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="chip text-[10px]" style={{ color, borderColor: color }}>{s.severity} · {s.score}</span>
+                {live && (
+                  <span className="chip text-[10px]"
+                    style={{ color: severityColor(live.overallRisk === "unknown" ? "medium" : live.overallRisk), borderColor: severityColor(live.overallRisk === "unknown" ? "medium" : live.overallRisk) }}>
+                    live · {live.overallRisk}
+                  </span>
+                )}
                 <code className="text-xs font-mono break-all" style={{ color: s.score > 0 ? "var(--warn)" : "var(--muted-foreground)" }}>{s.url}</code>
               </div>
               <ul className="mt-1 text-[11px] text-muted-foreground space-y-0.5">
@@ -746,11 +781,53 @@ function LinkIntelTable({ scores }: { scores: LinkScore[] }) {
                   </li>
                 ))}
               </ul>
+              {live && (
+                <div className="mt-2 rounded-md border border-border/70 bg-background/50 p-2">
+                  <div className="flex flex-wrap items-center gap-3 text-[10px] font-mono text-muted-foreground mb-1.5">
+                    {live.domainAgeDays !== null && <span>domain age: <span className="text-foreground">{live.domainAgeDays}d</span></span>}
+                    {live.publicScanCount !== null && <span>public scans: <span className="text-foreground">{live.publicScanCount}</span></span>}
+                    {live.reportedPhishing && <span style={{ color: "var(--critical)" }}>reported phishing</span>}
+                  </div>
+                  <ul className="space-y-1">
+                    {live.providers.map((p, pi) => (
+                      <li key={pi} className="flex items-start gap-2 text-[11px]">
+                        <span className="chip text-[9px] mt-0.5"
+                          style={{ color: providerStatusColor(p.status), borderColor: providerStatusColor(p.status), minWidth: 58, justifyContent: "center" }}>
+                          {p.status}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">{p.provider}</div>
+                          <div className="text-[11px] break-words">
+                            {p.detail}
+                            {p.link && (
+                              <a href={p.link} target="_blank" rel="noreferrer noopener"
+                                 className="ml-1 inline-flex items-center gap-0.5 underline underline-offset-2 opacity-80 hover:opacity-100">
+                                view <ExternalLink className="h-2.5 w-2.5" />
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </li>
           );
         })}
       </ul>
     </div>
   );
+}
+
+function providerStatusColor(s: ProviderStatus) {
+  switch (s) {
+    case "flagged": return "var(--critical)";
+    case "clean": return "var(--safe)";
+    case "unknown": return "var(--warn)";
+    case "skipped": return "var(--muted-foreground)";
+    case "error": return "var(--danger)";
+    default: return "var(--muted-foreground)";
+  }
 }
 
