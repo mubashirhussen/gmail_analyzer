@@ -102,6 +102,7 @@ function categoryLabel(c: string) {
 function Dashboard() {
   const { session, history, addHistory, clearHistory, deleteCurrentAccount, switchAccount, logout, lockNow, changePasscode } = useAuth();
   const analyze = useServerFn(analyzeEmail);
+  const runEnrich = useServerFn(enrichUrls);
   const logScan = useServerFn(logScanEvent);
   const [view, setView] = useState<ViewKey>("dashboard");
   const [channel, setChannel] = useState<"email" | "social">("email");
