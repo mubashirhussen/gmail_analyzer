@@ -422,7 +422,7 @@ function DashboardView(props: {
             {linkScores.length > 0 && (
               <LinkIntelTable
                 scores={linkScores}
-                onRunIntel={runIntel}
+                onRunIntel={onRunIntel}
                 intelLoading={intelLoading}
                 intelError={intelError}
                 intel={intel}
