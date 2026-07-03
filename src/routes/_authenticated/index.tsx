@@ -284,6 +284,7 @@ function Dashboard() {
             result={result} openRec={openRec}
             history={history}
             linkScores={linkScores}
+            intel={intel} intelLoading={intelLoading} intelError={intelError} onRunIntel={runIntel}
           />
         )}
 
