@@ -136,6 +136,23 @@ function Dashboard() {
   // Live link-intelligence on the pasted body (client-side, no AI call).
   const linkScores: LinkScore[] = useMemo(() => scoreLinks(extractUrls(body)), [body]);
 
+  // Reset any previous live-intel result when the pasted URLs change.
+  useMemo(() => { setIntel(null); setIntelError(null); }, [body]);
+
+  async function runIntel() {
+    const urls = linkScores.slice(0, 10).map((s) => s.url);
+    if (urls.length === 0) return;
+    setIntelLoading(true); setIntelError(null); setIntel(null);
+    try {
+      const res = await runEnrich({ data: { urls } });
+      setIntel(res);
+    } catch (err) {
+      setIntelError(err instanceof Error ? err.message : "Live threat check failed.");
+    } finally { setIntelLoading(false); }
+  }
+
+
+
   async function onFilesPicked(files: FileList | null) {
     if (!files) return;
     setError(null);
