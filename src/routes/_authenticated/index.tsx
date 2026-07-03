@@ -413,7 +413,15 @@ function DashboardView(props: {
                 className="mt-1 w-full rounded-md bg-input/60 border border-border px-3 py-2.5 text-sm font-mono leading-relaxed outline-none focus:ring-2 focus:ring-ring/60 focus:border-ring resize-y" />
             </div>
 
-            {linkScores.length > 0 && <LinkIntelTable scores={linkScores} />}
+            {linkScores.length > 0 && (
+              <LinkIntelTable
+                scores={linkScores}
+                onRunIntel={runIntel}
+                intelLoading={intelLoading}
+                intelError={intelError}
+                intel={intel}
+              />
+            )}
 
             <div>
               <div className="flex items-center justify-between">
