@@ -4,10 +4,11 @@ import { useMemo, useState } from "react";
 import {
   Shield, ShieldAlert, ShieldCheck, Mail, Link2, AlertTriangle, Activity, Lock,
   Eye, Loader2, Sparkles, Send, TrendingUp, Paperclip, X, FileText, Image as ImageIcon,
-  MessageCircle, Target,
+  MessageCircle, Target, Radar, ExternalLink,
 } from "lucide-react";
 import { analyzeEmail, type EmailAnalysis } from "@/lib/analyze-email.functions";
 import { logScanEvent } from "@/lib/devices.functions";
+import { enrichUrls, type ThreatIntelResult, type UrlIntel, type ProviderStatus } from "@/lib/threat-intel.functions";
 import { useAuth } from "@/lib/auth-context";
 import { AppMenu, type ViewKey } from "@/components/app-menu";
 import { Link } from "@tanstack/react-router";
