@@ -17,8 +17,8 @@ export const reportScam = createServerFn({ method: "POST" })
     const { data: rows, error } = await supabase.rpc("report_scam", {
       _hash: data.hash,
       _kind: data.kind,
-      _category: data.category ?? null,
-      _verdict: data.verdict ?? null,
+      _category: data.category ?? "",
+      _verdict: data.verdict ?? "",
     });
     if (error) throw new Error(error.message);
     const row = Array.isArray(rows) ? rows[0] : rows;
