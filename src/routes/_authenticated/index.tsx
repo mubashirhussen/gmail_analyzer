@@ -9,6 +9,8 @@ import {
 import { analyzeEmail, type EmailAnalysis } from "@/lib/analyze-email.functions";
 import { logScanEvent } from "@/lib/devices.functions";
 import { enrichUrls, type ThreatIntelResult, type UrlIntel, type ProviderStatus } from "@/lib/threat-intel.functions";
+import { reportScam, getReportCounts } from "@/lib/reports.functions";
+import { impactFor, sha256Hex, normalizeContent } from "@/lib/device-impact";
 import { useAuth } from "@/lib/auth-context";
 import { AppMenu, type ViewKey } from "@/components/app-menu";
 import { Link } from "@tanstack/react-router";
