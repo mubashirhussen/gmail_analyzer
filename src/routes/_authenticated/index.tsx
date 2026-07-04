@@ -106,6 +106,8 @@ function Dashboard() {
   const analyze = useServerFn(analyzeEmail);
   const runEnrich = useServerFn(enrichUrls);
   const logScan = useServerFn(logScanEvent);
+  const reportFn = useServerFn(reportScam);
+  const countsFn = useServerFn(getReportCounts);
   const [view, setView] = useState<ViewKey>("dashboard");
   const [channel, setChannel] = useState<"email" | "social">("email");
   const [sender, setSender] = useState("");
@@ -120,6 +122,10 @@ function Dashboard() {
   const [intel, setIntel] = useState<ThreatIntelResult | null>(null);
   const [intelLoading, setIntelLoading] = useState(false);
   const [intelError, setIntelError] = useState<string | null>(null);
+  const [contentHash, setContentHash] = useState<string | null>(null);
+  const [reportCount, setReportCount] = useState<number>(0);
+  const [reporting, setReporting] = useState(false);
+  const [reported, setReported] = useState(false);
 
   const account = session!.account;
 
