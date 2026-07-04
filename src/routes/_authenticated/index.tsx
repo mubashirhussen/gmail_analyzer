@@ -520,7 +520,12 @@ function DashboardView(props: {
           </form>
         </div>
 
-        {result && <AnalysisReport result={result} openRec={openRec} />}
+        {result && (
+          <AnalysisReport
+            result={result} openRec={openRec}
+            reportCount={reportCount} reported={reported} reporting={reporting} onReport={onReport}
+          />
+        )}
       </section>
 
       <aside className="col-span-12 lg:col-span-3 space-y-4">
