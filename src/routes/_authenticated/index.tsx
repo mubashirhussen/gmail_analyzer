@@ -177,6 +177,7 @@ function Dashboard() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null); setLoading(true); setResult(null);
+    setContentHash(null); setReportCount(0); setReported(false);
     try {
       const res = await analyze({
         data: {
@@ -196,9 +197,35 @@ function Dashboard() {
       };
       await addHistory(item);
       logScan({ data: { verdict: res.verdict, riskScore: res.riskScore, subject, sender } }).catch(() => {});
+      // community-report lookup
+      try {
+        const hash = await sha256Hex(normalizeContent(sender, subject, body));
+        setContentHash(hash);
+        const { counts } = await countsFn({ data: { hashes: [hash] } });
+        setReportCount(counts[hash] ?? 0);
+      } catch { /* non-fatal */ }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally { setLoading(false); }
+  }
+
+  async function submitReport() {
+    if (!contentHash || !result || reporting || reported) return;
+    setReporting(true);
+    try {
+      const r = await reportFn({
+        data: {
+          hash: contentHash,
+          kind: channel === "social" ? "social" : "email",
+          category: result.attackCategory,
+          verdict: result.verdict,
+        },
+      });
+      setReportCount(r.reportCount);
+      setReported(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Report failed.");
+    } finally { setReporting(false); }
   }
 
   function loadSample() {
