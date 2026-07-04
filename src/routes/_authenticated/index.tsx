@@ -320,6 +320,7 @@ function Dashboard() {
             history={history}
             linkScores={linkScores}
             intel={intel} intelLoading={intelLoading} intelError={intelError} onRunIntel={runIntel}
+            reportCount={reportCount} reported={reported} reporting={reporting} onReport={submitReport}
           />
         )}
 
