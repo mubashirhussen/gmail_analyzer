@@ -893,3 +893,90 @@ function providerStatusColor(s: ProviderStatus) {
   }
 }
 
+
+/* ---------------- Community report row + Device-impact panel ---------------- */
+
+function CommunityReportRow({
+  reportCount, reported, reporting, onReport, verdict,
+}: {
+  reportCount: number; reported: boolean; reporting: boolean; onReport: () => void;
+  verdict: EmailAnalysis["verdict"];
+}) {
+  const isThreat = verdict !== "safe";
+  return (
+    <div className="mt-5 rounded-md border border-border bg-card/50 px-3 py-2.5 flex items-center gap-3 flex-wrap">
+      <div className="inline-flex items-center gap-2 text-sm">
+        <Users className="h-4 w-4" style={{ color: "var(--warn)" }} />
+        {reportCount > 0 ? (
+          <span>
+            <span className="font-mono font-semibold" style={{ color: "var(--warn)" }}>{reportCount}</span>
+            {" "}MailGuard {reportCount === 1 ? "user has" : "users have"} reported this exact content as a scam.
+          </span>
+        ) : (
+          <span className="text-muted-foreground">
+            No other MailGuard user has reported this exact content yet.
+          </span>
+        )}
+      </div>
+      <div className="ml-auto flex items-center gap-2">
+        {reported ? (
+          <span className="chip text-[10px]" style={{ color: "var(--safe)", borderColor: "var(--safe)" }}>
+            <ShieldCheck className="h-3 w-3" /> Reported — thank you
+          </span>
+        ) : (
+          <button type="button" onClick={onReport} disabled={reporting || !isThreat}
+            title={!isThreat ? "Reports are only meaningful for suspicious/phishing/fraud verdicts" : "Add your report to the community counter"}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-md border transition disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>
+            {reporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Flag className="h-3.5 w-3.5" />}
+            Report as scam
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DeviceImpactPanel({ category, verdict }: { category?: string; verdict: EmailAnalysis["verdict"] }) {
+  if (verdict === "safe") return null;
+  const impact = impactFor(category);
+  return (
+    <section className="mt-6 rounded-md border border-border bg-card/40 p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Radar className="h-4 w-4" style={{ color: "var(--warn)" }} />
+        <h4 className="text-xs uppercase tracking-wider text-muted-foreground font-mono">
+          What this scam can do to your device & data
+        </h4>
+      </div>
+      <p className="text-sm mb-3"><span className="font-semibold">Attacker's goal: </span>{impact.what}</p>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono mb-1.5 flex items-center gap-1.5">
+            <Shield className="h-3 w-3" /> Effect on your device
+          </div>
+          <ul className="space-y-1 text-xs">
+            {impact.device.map((d, i) => (
+              <li key={i} className="flex gap-2"><span style={{ color: "var(--danger)" }}>▸</span><span>{d}</span></li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono mb-1.5 flex items-center gap-1.5">
+            <Eye className="h-3 w-3" /> Data an attacker can obtain
+          </div>
+          <ul className="flex flex-wrap gap-1.5">
+            {impact.data.map((d, i) => (
+              <li key={i} className="chip text-[10px]" style={{ color: "var(--warn)", borderColor: "var(--warn)" }}>{d}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      <div className="mt-3 flex items-start gap-2 text-[11px] text-muted-foreground border-t border-border pt-2.5">
+        <Info className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+        <span><span className="font-semibold text-foreground">Why we tell you this: </span>{impact.reasoning}</span>
+      </div>
+    </section>
+  );
+}
