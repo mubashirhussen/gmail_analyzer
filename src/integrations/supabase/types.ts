@@ -86,6 +86,54 @@ export type Database = {
         }
         Relationships: []
       }
+      scam_report_users: {
+        Row: {
+          hash: string
+          reported_at: string
+          user_id: string
+        }
+        Insert: {
+          hash: string
+          reported_at?: string
+          user_id: string
+        }
+        Update: {
+          hash?: string
+          reported_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      scam_reports: {
+        Row: {
+          category: string | null
+          first_reported_at: string
+          hash: string
+          kind: string
+          last_reported_at: string
+          last_verdict: string | null
+          report_count: number
+        }
+        Insert: {
+          category?: string | null
+          first_reported_at?: string
+          hash: string
+          kind: string
+          last_reported_at?: string
+          last_verdict?: string | null
+          report_count?: number
+        }
+        Update: {
+          category?: string | null
+          first_reported_at?: string
+          hash?: string
+          kind?: string
+          last_reported_at?: string
+          last_verdict?: string | null
+          report_count?: number
+        }
+        Relationships: []
+      }
       security_events: {
         Row: {
           created_at: string
@@ -162,7 +210,27 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_report_counts: {
+        Args: { _hashes: string[] }
+        Returns: {
+          category: string
+          hash: string
+          last_verdict: string
+          report_count: number
+        }[]
+      }
+      report_scam: {
+        Args: {
+          _category: string
+          _hash: string
+          _kind: string
+          _verdict: string
+        }
+        Returns: {
+          newly_reported: boolean
+          report_count: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
