@@ -660,6 +660,13 @@ function AnalysisReport({
 
       <p className="mt-5 text-sm leading-relaxed">{result.summary}</p>
 
+      <CommunityReportRow
+        reportCount={reportCount} reported={reported} reporting={reporting}
+        onReport={onReport} verdict={result.verdict}
+      />
+
+      <DeviceImpactPanel category={result.attackCategory} verdict={result.verdict} />
+
       {result.indicators.length > 0 && (
         <section className="mt-6">
           <h4 className="text-xs uppercase tracking-wider text-muted-foreground font-mono mb-2 flex items-center gap-2">
