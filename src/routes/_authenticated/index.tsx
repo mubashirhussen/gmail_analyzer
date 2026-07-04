@@ -4,11 +4,13 @@ import { useMemo, useState } from "react";
 import {
   Shield, ShieldAlert, ShieldCheck, Mail, Link2, AlertTriangle, Activity, Lock,
   Eye, Loader2, Sparkles, Send, TrendingUp, Paperclip, X, FileText, Image as ImageIcon,
-  MessageCircle, Target, Radar, ExternalLink,
+  MessageCircle, Target, Radar, ExternalLink, Users, Flag, Info,
 } from "lucide-react";
 import { analyzeEmail, type EmailAnalysis } from "@/lib/analyze-email.functions";
 import { logScanEvent } from "@/lib/devices.functions";
 import { enrichUrls, type ThreatIntelResult, type UrlIntel, type ProviderStatus } from "@/lib/threat-intel.functions";
+import { reportScam, getReportCounts } from "@/lib/reports.functions";
+import { impactFor, sha256Hex, normalizeContent } from "@/lib/device-impact";
 import { useAuth } from "@/lib/auth-context";
 import { AppMenu, type ViewKey } from "@/components/app-menu";
 import { Link } from "@tanstack/react-router";
@@ -104,6 +106,8 @@ function Dashboard() {
   const analyze = useServerFn(analyzeEmail);
   const runEnrich = useServerFn(enrichUrls);
   const logScan = useServerFn(logScanEvent);
+  const reportFn = useServerFn(reportScam);
+  const countsFn = useServerFn(getReportCounts);
   const [view, setView] = useState<ViewKey>("dashboard");
   const [channel, setChannel] = useState<"email" | "social">("email");
   const [sender, setSender] = useState("");
@@ -118,6 +122,10 @@ function Dashboard() {
   const [intel, setIntel] = useState<ThreatIntelResult | null>(null);
   const [intelLoading, setIntelLoading] = useState(false);
   const [intelError, setIntelError] = useState<string | null>(null);
+  const [contentHash, setContentHash] = useState<string | null>(null);
+  const [reportCount, setReportCount] = useState<number>(0);
+  const [reporting, setReporting] = useState(false);
+  const [reported, setReported] = useState(false);
 
   const account = session!.account;
 
@@ -169,6 +177,7 @@ function Dashboard() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null); setLoading(true); setResult(null);
+    setContentHash(null); setReportCount(0); setReported(false);
     try {
       const res = await analyze({
         data: {
@@ -188,9 +197,35 @@ function Dashboard() {
       };
       await addHistory(item);
       logScan({ data: { verdict: res.verdict, riskScore: res.riskScore, subject, sender } }).catch(() => {});
+      // community-report lookup
+      try {
+        const hash = await sha256Hex(normalizeContent(sender, subject, body));
+        setContentHash(hash);
+        const { counts } = await countsFn({ data: { hashes: [hash] } });
+        setReportCount(counts[hash] ?? 0);
+      } catch { /* non-fatal */ }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally { setLoading(false); }
+  }
+
+  async function submitReport() {
+    if (!contentHash || !result || reporting || reported) return;
+    setReporting(true);
+    try {
+      const r = await reportFn({
+        data: {
+          hash: contentHash,
+          kind: channel === "social" ? "social" : "email",
+          category: result.attackCategory,
+          verdict: result.verdict,
+        },
+      });
+      setReportCount(r.reportCount);
+      setReported(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Report failed.");
+    } finally { setReporting(false); }
   }
 
   function loadSample() {
@@ -285,6 +320,7 @@ function Dashboard() {
             history={history}
             linkScores={linkScores}
             intel={intel} intelLoading={intelLoading} intelError={intelError} onRunIntel={runIntel}
+            reportCount={reportCount} reported={reported} reporting={reporting} onReport={submitReport}
           />
         )}
 
@@ -336,12 +372,17 @@ function DashboardView(props: {
   intelLoading: boolean;
   intelError: string | null;
   onRunIntel: () => void;
+  reportCount: number;
+  reported: boolean;
+  reporting: boolean;
+  onReport: () => void;
 }) {
   const {
     protectionScore, stats, channel, setChannel, sender, setSender, subject, setSubject, body, setBody,
     attachments, onFilesPicked, removeAttachment, error, loading, onSubmit, loadSample,
     result, openRec, history, linkScores,
     intel, intelLoading, intelError, onRunIntel,
+    reportCount, reported, reporting, onReport,
   } = props;
 
 
@@ -479,7 +520,12 @@ function DashboardView(props: {
           </form>
         </div>
 
-        {result && <AnalysisReport result={result} openRec={openRec} />}
+        {result && (
+          <AnalysisReport
+            result={result} openRec={openRec}
+            reportCount={reportCount} reported={reported} reporting={reporting} onReport={onReport}
+          />
+        )}
       </section>
 
       <aside className="col-span-12 lg:col-span-3 space-y-4">
@@ -562,7 +608,16 @@ function ProtectionMeter({ score }: { score: number }) {
   );
 }
 
-function AnalysisReport({ result, openRec }: { result: EmailAnalysis; openRec: (r: string) => void }) {
+function AnalysisReport({
+  result, openRec, reportCount, reported, reporting, onReport,
+}: {
+  result: EmailAnalysis;
+  openRec: (r: string) => void;
+  reportCount: number;
+  reported: boolean;
+  reporting: boolean;
+  onReport: () => void;
+}) {
   const m = verdictMeta(result.verdict);
   const isDanger = result.verdict === "phishing" || result.verdict === "fraud";
   return (
@@ -604,6 +659,13 @@ function AnalysisReport({ result, openRec }: { result: EmailAnalysis; openRec: (
 
 
       <p className="mt-5 text-sm leading-relaxed">{result.summary}</p>
+
+      <CommunityReportRow
+        reportCount={reportCount} reported={reported} reporting={reporting}
+        onReport={onReport} verdict={result.verdict}
+      />
+
+      <DeviceImpactPanel category={result.attackCategory} verdict={result.verdict} />
 
       {result.indicators.length > 0 && (
         <section className="mt-6">
@@ -831,3 +893,90 @@ function providerStatusColor(s: ProviderStatus) {
   }
 }
 
+
+/* ---------------- Community report row + Device-impact panel ---------------- */
+
+function CommunityReportRow({
+  reportCount, reported, reporting, onReport, verdict,
+}: {
+  reportCount: number; reported: boolean; reporting: boolean; onReport: () => void;
+  verdict: EmailAnalysis["verdict"];
+}) {
+  const isThreat = verdict !== "safe";
+  return (
+    <div className="mt-5 rounded-md border border-border bg-card/50 px-3 py-2.5 flex items-center gap-3 flex-wrap">
+      <div className="inline-flex items-center gap-2 text-sm">
+        <Users className="h-4 w-4" style={{ color: "var(--warn)" }} />
+        {reportCount > 0 ? (
+          <span>
+            <span className="font-mono font-semibold" style={{ color: "var(--warn)" }}>{reportCount}</span>
+            {" "}MailGuard {reportCount === 1 ? "user has" : "users have"} reported this exact content as a scam.
+          </span>
+        ) : (
+          <span className="text-muted-foreground">
+            No other MailGuard user has reported this exact content yet.
+          </span>
+        )}
+      </div>
+      <div className="ml-auto flex items-center gap-2">
+        {reported ? (
+          <span className="chip text-[10px]" style={{ color: "var(--safe)", borderColor: "var(--safe)" }}>
+            <ShieldCheck className="h-3 w-3" /> Reported — thank you
+          </span>
+        ) : (
+          <button type="button" onClick={onReport} disabled={reporting || !isThreat}
+            title={!isThreat ? "Reports are only meaningful for suspicious/phishing/fraud verdicts" : "Add your report to the community counter"}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-md border transition disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>
+            {reporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Flag className="h-3.5 w-3.5" />}
+            Report as scam
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DeviceImpactPanel({ category, verdict }: { category?: string; verdict: EmailAnalysis["verdict"] }) {
+  if (verdict === "safe") return null;
+  const impact = impactFor(category);
+  return (
+    <section className="mt-6 rounded-md border border-border bg-card/40 p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Radar className="h-4 w-4" style={{ color: "var(--warn)" }} />
+        <h4 className="text-xs uppercase tracking-wider text-muted-foreground font-mono">
+          What this scam can do to your device & data
+        </h4>
+      </div>
+      <p className="text-sm mb-3"><span className="font-semibold">Attacker's goal: </span>{impact.what}</p>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono mb-1.5 flex items-center gap-1.5">
+            <Shield className="h-3 w-3" /> Effect on your device
+          </div>
+          <ul className="space-y-1 text-xs">
+            {impact.device.map((d, i) => (
+              <li key={i} className="flex gap-2"><span style={{ color: "var(--danger)" }}>▸</span><span>{d}</span></li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono mb-1.5 flex items-center gap-1.5">
+            <Eye className="h-3 w-3" /> Data an attacker can obtain
+          </div>
+          <ul className="flex flex-wrap gap-1.5">
+            {impact.data.map((d, i) => (
+              <li key={i} className="chip text-[10px]" style={{ color: "var(--warn)", borderColor: "var(--warn)" }}>{d}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      <div className="mt-3 flex items-start gap-2 text-[11px] text-muted-foreground border-t border-border pt-2.5">
+        <Info className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+        <span><span className="font-semibold text-foreground">Why we tell you this: </span>{impact.reasoning}</span>
+      </div>
+    </section>
+  );
+}
