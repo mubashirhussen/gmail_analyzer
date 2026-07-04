@@ -372,12 +372,17 @@ function DashboardView(props: {
   intelLoading: boolean;
   intelError: string | null;
   onRunIntel: () => void;
+  reportCount: number;
+  reported: boolean;
+  reporting: boolean;
+  onReport: () => void;
 }) {
   const {
     protectionScore, stats, channel, setChannel, sender, setSender, subject, setSubject, body, setBody,
     attachments, onFilesPicked, removeAttachment, error, loading, onSubmit, loadSample,
     result, openRec, history, linkScores,
     intel, intelLoading, intelError, onRunIntel,
+    reportCount, reported, reporting, onReport,
   } = props;
 
 
