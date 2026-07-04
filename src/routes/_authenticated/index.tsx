@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import {
   Shield, ShieldAlert, ShieldCheck, Mail, Link2, AlertTriangle, Activity, Lock,
   Eye, Loader2, Sparkles, Send, TrendingUp, Paperclip, X, FileText, Image as ImageIcon,
-  MessageCircle, Target, Radar, ExternalLink,
+  MessageCircle, Target, Radar, ExternalLink, Users, Flag, Info,
 } from "lucide-react";
 import { analyzeEmail, type EmailAnalysis } from "@/lib/analyze-email.functions";
 import { logScanEvent } from "@/lib/devices.functions";
