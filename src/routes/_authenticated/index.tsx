@@ -608,7 +608,16 @@ function ProtectionMeter({ score }: { score: number }) {
   );
 }
 
-function AnalysisReport({ result, openRec }: { result: EmailAnalysis; openRec: (r: string) => void }) {
+function AnalysisReport({
+  result, openRec, reportCount, reported, reporting, onReport,
+}: {
+  result: EmailAnalysis;
+  openRec: (r: string) => void;
+  reportCount: number;
+  reported: boolean;
+  reporting: boolean;
+  onReport: () => void;
+}) {
   const m = verdictMeta(result.verdict);
   const isDanger = result.verdict === "phishing" || result.verdict === "fraud";
   return (
