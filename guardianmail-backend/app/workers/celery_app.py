@@ -1,7 +1,7 @@
 from celery import Celery
-from celery.schedules import crontab
 
 from app.core.config import settings
+from app.workers.scheduler import BEAT_SCHEDULE
 
 celery = Celery(
     "guardianmail",
@@ -21,10 +21,12 @@ celery.conf.update(
         "ocr.*": {"queue": "ocr"},
         "threat.*": {"queue": "threat"},
         "reports.*": {"queue": "report"},
+        "security.*": {"queue": "default"},
     },
-    beat_schedule={
-        "gmail-sync-all": {"task": "gmail.sync_all", "schedule": crontab(minute="*/15")},
-        "nightly-analytics": {"task": "reports.nightly_rollup", "schedule": crontab(hour=1, minute=30)},
-    },
+    beat_schedule=BEAT_SCHEDULE,
     timezone="UTC",
+    task_acks_late=True,
+    worker_prefetch_multiplier=1,
+    task_time_limit=300,
+    task_soft_time_limit=240,
 )
