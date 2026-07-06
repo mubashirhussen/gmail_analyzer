@@ -12,7 +12,9 @@ from app.core.middleware import RequestContextMiddleware
 from app.database.mongodb import mongodb
 from app.database.redis import redis_client
 from app.database.indexes import ensure_indexes
-from app.api.v1 import auth, gmail, emails, phishing, attachments, links, privacy, devices, analytics, reports, ai, dashboard, community
+from app.core.exceptions import register_exception_handlers
+from app.api.v1 import (auth, gmail, emails, phishing, attachments, links, privacy,
+                        devices, analytics, reports, ai, dashboard, community, notifications)
 
 configure_logging()
 limiter = Limiter(key_func=get_remote_address, default_limits=["120/minute"])
@@ -45,9 +47,11 @@ app.add_middleware(
 )
 app.add_middleware(RequestContextMiddleware)
 
+register_exception_handlers(app)
+
 # routers
 for r in (auth, gmail, emails, phishing, attachments, links, privacy,
-          devices, analytics, reports, ai, dashboard, community):
+          devices, analytics, reports, ai, dashboard, community, notifications):
     app.include_router(r.router, prefix="/api/v1")
 
 

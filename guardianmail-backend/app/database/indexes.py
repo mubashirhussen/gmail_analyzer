@@ -13,3 +13,6 @@ async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
     await db.audit_logs.create_index([("user_id", 1), ("at", -1)])
     await db.community_reports.create_index("hash", unique=True)
     await db.community_reports.create_index([("hash", 1), ("reporters", 1)])
+    await db.notifications.create_index([("user_id", 1), ("created_at", -1)])
+    await db.analytics.create_index([("user_id", 1), ("at", -1)])
+    await db.automation_rules.create_index([("user_id", 1), ("enabled", 1)])
