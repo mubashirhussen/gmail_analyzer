@@ -37,6 +37,8 @@ pytesseract==0.3.13
 paddleocr==2.8.1
 pypdf==5.0.1
 python-docx==1.1.2
+pyzbar==0.1.9
+
 
 # reports
 weasyprint==62.3
