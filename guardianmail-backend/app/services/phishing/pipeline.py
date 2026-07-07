@@ -16,6 +16,12 @@ from app.services.ai.gemini import gemini_json
 from app.services.ocr.ocr import extract_text
 from app.services.url_scan.scanner import scan_urls
 from app.services.security.email_auth import spf_dkim_dmarc
+from app.services.scoring.explainable import explain
+from app.services.scoring.why import build as build_why
+from app.services.tracking.forwards import record_forward, get_stats
+from app.services.tracking.device_link import link_artifact
+from app.utils.hashing import artifact_hash
+
 
 URL_RE = re.compile(r"https?://[^\s<>\"')]+", re.I)
 
