@@ -20,3 +20,9 @@ def content_hash(*parts: str) -> str:
 
 def sha256_bytes(raw: bytes) -> str:
     return hashlib.sha256(raw).hexdigest()
+
+
+def artifact_hash(kind: str, key: str) -> str:
+    """Stable hash for an artifact (link, email, qr) so we can dedupe across users."""
+    return content_hash(kind, key)
+
