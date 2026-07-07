@@ -16,3 +16,11 @@ async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
     await db.notifications.create_index([("user_id", 1), ("created_at", -1)])
     await db.analytics.create_index([("user_id", 1), ("at", -1)])
     await db.automation_rules.create_index([("user_id", 1), ("enabled", 1)])
+    await db.artifact_stats.create_index("hash", unique=True)
+    await db.artifact_stats.create_index([("kind", 1), ("last_seen", -1)])
+    await db.artifact_events.create_index([("hash", 1), ("at", -1)])
+    await db.artifact_events.create_index([("user_id", 1), ("at", -1)])
+    await db.device_artifacts.create_index([("user_id", 1), ("device_fingerprint", 1), ("at", -1)])
+    await db.security_events.create_index([("user_id", 1), ("created_at", -1)])
+    await db.security_events.create_index([("kind", 1), ("severity", 1)])
+

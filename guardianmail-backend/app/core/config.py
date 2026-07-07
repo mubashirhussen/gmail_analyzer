@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     WHOISXML_KEY: str = ""
 
     CORS_ORIGINS: str = "http://localhost:5173"
+    WEBHOOK_SECRET: str = ""
+
 
     @property
     def cors_origins_list(self) -> list[str]:

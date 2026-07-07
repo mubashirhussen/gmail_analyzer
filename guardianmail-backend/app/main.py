@@ -14,7 +14,9 @@ from app.database.redis import redis_client
 from app.database.indexes import ensure_indexes
 from app.core.exceptions import register_exception_handlers
 from app.api.v1 import (auth, gmail, emails, phishing, attachments, links, privacy,
-                        devices, analytics, reports, ai, dashboard, community, notifications)
+                        devices, analytics, reports, ai, dashboard, community, notifications,
+                        qr, audit, webhooks)
+
 
 configure_logging()
 limiter = Limiter(key_func=get_remote_address, default_limits=["120/minute"])
@@ -51,8 +53,10 @@ register_exception_handlers(app)
 
 # routers
 for r in (auth, gmail, emails, phishing, attachments, links, privacy,
-          devices, analytics, reports, ai, dashboard, community, notifications):
+          devices, analytics, reports, ai, dashboard, community, notifications,
+          qr, audit, webhooks):
     app.include_router(r.router, prefix="/api/v1")
+
 
 
 @app.get("/healthz", tags=["meta"])
