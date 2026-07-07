@@ -58,7 +58,12 @@ async def analyze_message(user_id: str, payload: dict[str, Any]) -> dict:
     urls = _extract_urls(full_text)
     intel = await scan_urls(urls) if urls else {"results": []}
 
-    # AI fusion
+    # community lookup — how many other users have reported this artifact
+    art_key = f"{sender}|{subject}"
+    prior = await get_stats(channel, art_key)
+    community_count = prior.get("forward_count", 0)
+
+    # AI fusion (advisory summary)
     system = (
         "You are GuardianMail, an elite phishing/fraud analyst. "
         "Given the message + OCR text + email auth results + per-URL threat intel, "
@@ -68,20 +73,48 @@ async def analyze_message(user_id: str, payload: dict[str, Any]) -> dict:
     )
     ai = await gemini_json(system=system, user={
         "channel": channel, "sender": sender, "subject": subject,
-        "body": body[:12_000],
-        "ocr": ocr_results,
-        "auth": auth,
-        "url_intel": intel,
+        "body": body[:12_000], "ocr": ocr_results, "auth": auth, "url_intel": intel,
     })
+
+    # Deterministic explainable scoring (source of truth for risk_score/verdict)
+    device = payload.get("device")
+    verdict = explain(
+        url_intel=intel,
+        ocr_results=ocr_results,
+        email_auth=auth,
+        attachments=payload.get("attachments", []),
+        device=device,
+        community_report_count=community_count,
+    )
+    why = build_why(verdict, artifact_kind=channel)
+
+    # Impact tracking + device link
+    stats = await record_forward(kind=channel, key=art_key, user_id=user_id,
+                                 verdict=verdict["verdict"], risk_score=verdict["risk_score"])
+    await link_artifact(
+        user_id=user_id,
+        device_fingerprint=(device or {}).get("fingerprint"),
+        artifact_hash=stats["hash"], artifact_kind=channel,
+        verdict=verdict["verdict"], risk_score=verdict["risk_score"],
+        signals=verdict["signals"],
+    )
 
     # persist
     db = get_db()
     doc = {
         "user_id": user_id, "channel": channel, "sender": sender, "subject": subject,
         "url_intel": intel, "email_auth": auth, "ocr": ocr_results,
-        "verdict": ai.get("verdict"), "risk_score": ai.get("risk_score"),
+        "verdict": verdict["verdict"], "risk_score": verdict["risk_score"],
+        "confidence": verdict["confidence"],
+        "signals": verdict["signals"],
+        "why": why, "ai_summary": ai.get("summary"),
         "attack_category": ai.get("attack_category"),
+        "artifact_hash": stats["hash"],
         "created_at": datetime.now(timezone.utc),
     }
     await db.threats.insert_one(doc)
-    return ai
+    return {**verdict, "why": why, "impact": stats,
+            "ai_summary": ai.get("summary"),
+            "attack_category": ai.get("attack_category"),
+            "recommendations": why["next_steps"]}
+
