@@ -665,6 +665,8 @@ function AnalysisReport({
         onReport={onReport} verdict={result.verdict}
       />
 
+      <VerdictExplainer result={result} />
+
       <DeviceImpactPanel category={result.attackCategory} verdict={result.verdict} />
 
       {result.indicators.length > 0 && (
@@ -976,6 +978,143 @@ function DeviceImpactPanel({ category, verdict }: { category?: string; verdict: 
       <div className="mt-3 flex items-start gap-2 text-[11px] text-muted-foreground border-t border-border pt-2.5">
         <Info className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
         <span><span className="font-semibold text-foreground">Why we tell you this: </span>{impact.reasoning}</span>
+      </div>
+    </section>
+  );
+}
+
+/* ---------------- Verdict explainer: mail protection %, why high/low risk ---------------- */
+
+function VerdictExplainer({ result }: { result: EmailAnalysis }) {
+  const protection = Math.max(0, Math.min(100, 100 - result.riskScore));
+  const isHigh = result.riskScore >= 51;
+  const isMid = result.riskScore >= 21 && result.riskScore < 51;
+  const isSafe = result.riskScore < 21;
+
+  const barColor =
+    protection >= 80 ? "var(--safe)" :
+    protection >= 50 ? "var(--warn)" :
+    protection >= 25 ? "var(--danger)" : "var(--critical)";
+
+  // Extract concrete "malicious data" the message is holding.
+  const maliciousArtifacts: { label: string; detail: string }[] = [];
+  for (const l of result.suspiciousLinks.slice(0, 6)) {
+    maliciousArtifacts.push({ label: `Link · ${l.risk}`, detail: `${l.url} — ${l.reason}` });
+  }
+  const highSevIndicators = result.indicators.filter(
+    (i) => i.severity === "high" || i.severity === "critical",
+  );
+  for (const ind of highSevIndicators.slice(0, 6)) {
+    maliciousArtifacts.push({
+      label: `${categoryLabel(ind.category)} · ${ind.severity}`,
+      detail: ind.detail,
+    });
+  }
+
+  const safeReasons: string[] = [];
+  if (isSafe) {
+    if (result.suspiciousLinks.length === 0) safeReasons.push("No suspicious URLs, shorteners, or IP-address links detected in the body.");
+    if (result.indicators.length === 0) safeReasons.push("No credential-harvest, urgency, or brand-impersonation cues fired.");
+    safeReasons.push("Sender pattern and message tone match legitimate correspondence — no spoofing or lookalike domain.");
+    safeReasons.push("Nothing in the content maps to the six known 2025-2026 attack families we screen for.");
+    safeReasons.push("Even so, verify any money / OTP request out-of-band — safe today doesn't mean safe forever.");
+  }
+
+  return (
+    <section className="mt-6 rounded-md border border-border bg-card/40 p-4">
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+        <div className="flex items-center gap-2">
+          <Shield className="h-4 w-4" style={{ color: barColor }} />
+          <h4 className="text-xs uppercase tracking-wider text-muted-foreground font-mono">
+            Mail protection level & why this verdict
+          </h4>
+        </div>
+        <span className="text-xs font-mono" style={{ color: barColor }}>
+          <span className="text-lg font-bold">{protection}%</span> protected
+        </span>
+      </div>
+
+      <div className="h-2 w-full rounded-full overflow-hidden bg-secondary/60 border border-border mb-1">
+        <div className="h-full rounded-full transition-all duration-700"
+             style={{ width: `${protection}%`, background: barColor, boxShadow: `0 0 8px ${barColor}` }} />
+      </div>
+      <div className="flex justify-between text-[10px] font-mono text-muted-foreground uppercase mb-4">
+        <span>Compromised</span><span>At risk</span><span>Guarded</span><span>Fully safe</span>
+      </div>
+
+      {isHigh && (
+        <div>
+          <div className="text-sm font-semibold mb-1" style={{ color: "var(--danger)" }}>
+            Why this mail is high risk
+          </div>
+          <p className="text-xs text-muted-foreground mb-2">
+            The AI verdict + heuristic scoring both crossed the {result.riskScore < 81 ? "phishing" : "fraud"} threshold ({result.riskScore}/100).
+            Below is the actual malicious content the message is carrying — this is not a guess, it's what the analyzer found inside your text and links.
+          </p>
+          <div className="text-[10px] uppercase tracking-wider font-mono text-muted-foreground mb-1">
+            Malicious data this message is holding
+          </div>
+          {maliciousArtifacts.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No individual artifacts extracted — but the overall pattern (tone, intent, structure) matches known scam playbooks.</p>
+          ) : (
+            <ul className="space-y-1.5">
+              {maliciousArtifacts.map((a, i) => (
+                <li key={i} className="rounded-md border border-border bg-background/50 px-2.5 py-1.5">
+                  <div className="text-[10px] font-mono uppercase tracking-wider" style={{ color: "var(--danger)" }}>{a.label}</div>
+                  <div className="text-xs break-words">{a.detail}</div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {isMid && (
+        <div>
+          <div className="text-sm font-semibold mb-1" style={{ color: "var(--warn)" }}>
+            Why this mail is suspicious (not conclusive)
+          </div>
+          <p className="text-xs text-muted-foreground mb-2">
+            Some indicators fired ({result.indicators.length}), but not enough to call it phishing outright.
+            Treat it like a stranger at your door — polite scepticism, no clicks until verified.
+          </p>
+          {maliciousArtifacts.length > 0 && (
+            <ul className="space-y-1.5">
+              {maliciousArtifacts.map((a, i) => (
+                <li key={i} className="rounded-md border border-border bg-background/50 px-2.5 py-1.5">
+                  <div className="text-[10px] font-mono uppercase tracking-wider" style={{ color: "var(--warn)" }}>{a.label}</div>
+                  <div className="text-xs break-words">{a.detail}</div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {isSafe && (
+        <div>
+          <div className="text-sm font-semibold mb-1" style={{ color: "var(--safe)" }}>
+            Why this mail is low risk & unlikely to defraud you
+          </div>
+          <ul className="space-y-1.5 text-xs">
+            {safeReasons.map((r, i) => (
+              <li key={i} className="flex gap-2">
+                <ShieldCheck className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" style={{ color: "var(--safe)" }} />
+                <span>{r}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="mt-3 flex items-start gap-2 text-[11px] text-muted-foreground border-t border-border pt-2.5">
+        <Info className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+        <span>
+          <span className="font-semibold text-foreground">How we scored this: </span>
+          Mail protection % = 100 − risk score. Risk score combines the AI verdict, per-link intelligence (Safe Browsing / VirusTotal / PhishTank / RDAP),
+          heuristic indicators (spoofing, urgency, brand impersonation, credential capture), and the six real-world attack families tracked in
+          <Link to="/threats" className="ml-1 underline underline-offset-2 text-foreground">Top 6 threats · 2025/26</Link>.
+        </span>
       </div>
     </section>
   );
