@@ -15,7 +15,8 @@ from app.database.indexes import ensure_indexes
 from app.core.exceptions import register_exception_handlers
 from app.api.v1 import (auth, gmail, emails, phishing, attachments, links, privacy,
                         devices, analytics, reports, ai, dashboard, community, notifications,
-                        qr, audit, webhooks)
+                        qr, audit, webhooks, webhook_deliveries, rankings, preferences,
+                        admin_review, stream)
 
 
 configure_logging()
