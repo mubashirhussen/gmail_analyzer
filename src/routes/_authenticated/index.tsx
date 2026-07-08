@@ -665,6 +665,8 @@ function AnalysisReport({
         onReport={onReport} verdict={result.verdict}
       />
 
+      <VerdictExplainer result={result} />
+
       <DeviceImpactPanel category={result.attackCategory} verdict={result.verdict} />
 
       {result.indicators.length > 0 && (
