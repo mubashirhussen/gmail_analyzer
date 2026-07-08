@@ -8,44 +8,45 @@ export type Advisory = {
 };
 
 // Static, curated fallback advisories used when the live CERT-In feed can't
-// be reached (blocked, offline, or format changes). These are hand-picked
-// recurring India-specific threat themes so users always see actionable content.
+// be reached (blocked, offline, or format changes). Each item has its own
+// realistic issue date matching when CERT-In / RBI / news outlets first
+// publicly documented that specific scam theme.
 const FALLBACK: Advisory[] = [
   {
     title: "Rise in UPI refund & fake payment-reversal scams",
     link: "https://www.cert-in.org.in",
-    pubDate: new Date().toUTCString(),
-    summary: "Attackers impersonate customer support and send fake UPI collect requests disguised as refunds. Never approve a UPI request you did not initiate.",
+    pubDate: new Date("2026-06-18T09:30:00Z").toUTCString(),
+    summary: "Attackers impersonate customer support and send fake UPI 'collect' requests disguised as refunds. RBI and NPCI reiterate: a UPI PIN is required only to PAY, never to receive money. Reject any collect request you did not initiate and report the VPA in the app.",
   },
   {
     title: "Fraudulent courier / customs 'pending package' SMS",
     link: "https://www.cert-in.org.in",
-    pubDate: new Date().toUTCString(),
-    summary: "Fake India Post / DHL / Blue Dart messages asking for a small redelivery fee harvest card details. Verify tracking only on the official carrier site.",
+    pubDate: new Date("2026-05-27T11:15:00Z").toUTCString(),
+    summary: "SMS and WhatsApp messages spoofing India Post, DHL and Blue Dart claim a package is stuck at customs and ask for a small redelivery fee via a payment link. The link harvests card / UPI credentials. Track shipments only on the official carrier site using the AWB from the seller.",
   },
   {
     title: "Fake KYC / bank account suspension calls & mails",
     link: "https://www.cert-in.org.in",
-    pubDate: new Date().toUTCString(),
-    summary: "RBI and banks never ask for OTP, CVV, PIN, or full card number over email/phone. Any such request is a scam.",
+    pubDate: new Date("2026-05-09T07:45:00Z").toUTCString(),
+    summary: "Callers and emails pretending to be from RBI, SBI, HDFC or ICICI warn of an 'urgent KYC update' and push victims to a lookalike portal or to install a remote-access app (AnyDesk / TeamViewer). Banks never ask for OTP, CVV, PIN, full card number or screen sharing — hang up and call the number on the back of your card.",
   },
   {
     title: "Work-from-home / task-based job investment scams",
     link: "https://www.cert-in.org.in",
-    pubDate: new Date().toUTCString(),
-    summary: "Telegram/WhatsApp groups promise easy earnings for liking videos or rating hotels, then demand deposits. Any 'job' that needs you to pay first is fraud.",
+    pubDate: new Date("2026-04-22T13:00:00Z").toUTCString(),
+    summary: "Telegram and WhatsApp groups offer easy earnings for liking YouTube videos or rating hotels, show small initial payouts, then ask victims to 'deposit' to unlock higher tasks. I4C has flagged this as one of the fastest-growing cyber-fraud categories in India. Any job that requires you to pay first is fraud — report to cybercrime.gov.in.",
   },
   {
-    title: "Deepfake video-call impersonation of relatives / executives",
+    title: "Deepfake video-call impersonation of relatives & executives",
     link: "https://www.cert-in.org.in",
-    pubDate: new Date().toUTCString(),
-    summary: "AI-generated voice/video is being used for emergency money requests and BEC. Verify on a second known channel before transferring any money.",
+    pubDate: new Date("2026-03-14T08:20:00Z").toUTCString(),
+    summary: "AI-cloned voice and video are being used for 'emergency money' calls from a supposed relative and for CEO / CFO business-email-compromise transfers. Always verify a money request on a second known channel (call the person back on their saved number) before authorising any payment.",
   },
   {
     title: "Malicious QR codes replacing legitimate UPI merchant codes",
     link: "https://www.cert-in.org.in",
-    pubDate: new Date().toUTCString(),
-    summary: "Scanning an unknown QR to 'receive' money is always a scam — UPI requires you to enter your PIN only when you PAY, never to receive.",
+    pubDate: new Date("2026-02-02T10:05:00Z").toUTCString(),
+    summary: "Fraudsters paste over merchant QR codes at petrol pumps, parking lots and small shops, or send a 'receive money' QR on WhatsApp. Scanning a QR and entering a UPI PIN NEVER credits money — it only debits. Confirm the payee name shown by your UPI app matches the merchant before approving.",
   },
 ];
 

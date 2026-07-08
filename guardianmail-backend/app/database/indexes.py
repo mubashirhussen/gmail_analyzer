@@ -23,4 +23,9 @@ async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
     await db.device_artifacts.create_index([("user_id", 1), ("device_fingerprint", 1), ("at", -1)])
     await db.security_events.create_index([("user_id", 1), ("created_at", -1)])
     await db.security_events.create_index([("kind", 1), ("severity", 1)])
+    await db.webhook_deliveries.create_index([("user_id", 1), ("created_at", -1)])
+    await db.webhook_deliveries.create_index([("status", 1), ("next_attempt_at", 1)])
+    await db.threats.create_index([("review_status", 1), ("created_at", -1)])
+    await db.threats.create_index([("risk_score", -1), ("created_at", -1)])
+
 
