@@ -55,7 +55,8 @@ register_exception_handlers(app)
 # routers
 for r in (auth, gmail, emails, phishing, attachments, links, privacy,
           devices, analytics, reports, ai, dashboard, community, notifications,
-          qr, audit, webhooks):
+          qr, audit, webhooks, webhook_deliveries, rankings, preferences,
+          admin_review, stream):
     app.include_router(r.router, prefix="/api/v1")
 
 
