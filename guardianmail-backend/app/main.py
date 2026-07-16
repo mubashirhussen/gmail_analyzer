@@ -125,3 +125,13 @@ from app.api.v1 import detection as detection_router  # noqa: E402
 app.include_router(detection_router.router, prefix="/api/v1")
 app.include_router(detection_router.risk_router, prefix="/api/v1")
 app.include_router(detection_router.fraud_router, prefix="/api/v1")
+
+# Phase 18 — Enterprise SOC (/api/v1/soc/*, /incidents, /alerts, ...).
+from app.api.v1 import soc as soc_router  # noqa: E402
+app.include_router(soc_router.router, prefix="/api/v1")
+app.include_router(soc_router.incidents_router, prefix="/api/v1")
+app.include_router(soc_router.cases_router, prefix="/api/v1")
+app.include_router(soc_router.alerts_router, prefix="/api/v1")
+app.include_router(soc_router.reports_router, prefix="/api/v1")
+app.include_router(soc_router.system_router, prefix="/api/v1")
+app.include_router(soc_router.audit_router, prefix="/api/v1")
