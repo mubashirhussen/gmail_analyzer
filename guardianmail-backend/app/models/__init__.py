@@ -47,5 +47,13 @@ __all__ = [
     "EvidenceFile",
     "Notification",
     "AnalyticsSnapshot",
+    "AttachmentRecord",
     "BackgroundJob",
+    "OCRReport",
+    "AttachmentAnalysis",
+    "DocumentMetadata",
+    "ExtractedPatterns",
+    "QRResult",
+    "SecurityIndicators",
+    "SensitiveSummary",
 ]
