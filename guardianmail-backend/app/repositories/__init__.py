@@ -33,4 +33,6 @@ __all__ = [
     "AnalyticsRepository",
     "SecurityEventRepository",
     "BackgroundJobRepository",
+    "AttachmentRecordRepository",
+    "OCRReportRepository",
 ]
