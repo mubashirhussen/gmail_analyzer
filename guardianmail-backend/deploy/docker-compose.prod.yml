@@ -1,0 +1,120 @@
+# Module 12 — full production stack: api + workers + monitoring.
+# Compose profile intended for a single EC2 host or bootstrap node.
+# For multi-node, front with an ALB and run api/worker services per host.
+
+x-app-build: &app-build
+  build:
+    context: ..
+    target: runtime
+
+services:
+  api:
+    <<: *app-build
+    restart: unless-stopped
+    env_file: ../.env
+    command: >
+      gunicorn app.main:app
+      -w ${API_WORKERS:-4}
+      -k uvicorn.workers.UvicornWorker
+      -b 0.0.0.0:8000
+      --graceful-timeout 30
+      --timeout 60
+      --access-logfile -
+    expose: ["8000"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  worker:
+    <<: *app-build
+    restart: unless-stopped
+    env_file: ../.env
+    deploy:
+      replicas: ${WORKER_REPLICAS:-2}
+    command: >
+      celery -A app.workers.celery_app.celery worker
+      -l INFO --concurrency=${WORKER_CONCURRENCY:-4}
+      -Q default,gmail,threat,ai,ocr,analytics,notifications,complaints,maintenance,high_priority,low_priority
+      --max-tasks-per-child=200
+
+  beat:
+    <<: *app-build
+    restart: unless-stopped
+    env_file: ../.env
+    command: celery -A app.workers.celery_app.celery beat -l INFO
+
+  flower:
+    <<: *app-build
+    restart: unless-stopped
+    env_file: ../.env
+    depends_on: [api]
+    expose: ["5555"]
+    command: >
+      celery -A app.workers.celery_app.celery flower
+      --port=5555 --url_prefix=flower
+      --basic_auth=${FLOWER_USER:-admin}:${FLOWER_PASS:-changeme}
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on: [api]
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+      - ./nginx/certbot:/var/www/certbot:ro
+      - nginx-logs:/var/log/nginx
+
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    restart: unless-stopped
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prom-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=15d"
+    expose: ["9090"]
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    restart: unless-stopped
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    expose: ["9093"]
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    restart: unless-stopped
+    depends_on: [prometheus]
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASS:-changeme}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    expose: ["3000"]
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    restart: unless-stopped
+    pid: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - "--path.rootfs=/rootfs"
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+    expose: ["9100"]
+
+volumes:
+  prom-data:
+  grafana-data:
+  nginx-logs:

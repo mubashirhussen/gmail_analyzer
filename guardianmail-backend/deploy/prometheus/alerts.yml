@@ -1,0 +1,65 @@
+groups:
+  - name: guardianmail-slo
+    interval: 30s
+    rules:
+      - alert: APIDown
+        expr: up{job="guardianmail-api"} == 0
+        for: 2m
+        labels: {severity: critical}
+        annotations:
+          summary: "GuardianMail API is down"
+          description: "Prometheus can't scrape the API for 2m."
+
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(gm_http_requests_total{status=~"5.."}[5m]))
+            / sum(rate(gm_http_requests_total[5m])) > 0.05
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "HTTP 5xx error rate >5%"
+
+      - alert: HighLatencyP95
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(gm_http_request_duration_seconds_bucket[5m]))) > 1
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: "API p95 latency >1s"
+
+      - alert: RateLimitStorm
+        expr: sum(rate(gm_rate_limit_hits_total[5m])) > 5
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "Sustained rate-limit rejections"
+
+      - alert: CircuitOpen
+        expr: max(gm_circuit_state) >= 2
+        for: 2m
+        labels: {severity: warning}
+        annotations:
+          summary: "Circuit breaker open — dependency failing"
+
+      - alert: HighCPU
+        expr: |
+          100 - (avg by (instance)(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 10m
+        labels: {severity: warning}
+        annotations: {summary: "CPU >85% for 10m"}
+
+      - alert: LowMemory
+        expr: |
+          (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 < 10
+        for: 10m
+        labels: {severity: warning}
+        annotations: {summary: "Available memory <10%"}
+
+      - alert: DiskFillingUp
+        expr: |
+          (node_filesystem_avail_bytes{mountpoint="/"} /
+           node_filesystem_size_bytes{mountpoint="/"}) * 100 < 15
+        for: 15m
+        labels: {severity: warning}
+        annotations: {summary: "Disk <15% free"}

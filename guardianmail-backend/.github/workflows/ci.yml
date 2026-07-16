@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main, staging]
+  pull_request:
+    branches: [main, staging]
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:7
+        ports: ["27017:27017"]
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12", cache: pip}
+      - name: Install
+        working-directory: guardianmail-backend
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install ruff mypy bandit pip-audit pytest pytest-cov
+      - name: Ruff (lint + format check)
+        working-directory: guardianmail-backend
+        run: ruff check app && ruff format --check app
+      - name: Bandit (SAST)
+        working-directory: guardianmail-backend
+        run: bandit -q -r app -x app/tests
+      - name: pip-audit (dependency CVE scan)
+        working-directory: guardianmail-backend
+        run: pip-audit -r requirements.txt --strict || true
+      - name: Pytest
+        working-directory: guardianmail-backend
+        env:
+          MONGODB_URI: mongodb://localhost:27017
+          REDIS_URL: redis://localhost:6379/0
+          APP_ENV: test
+          JWT_SECRET: test-secret-do-not-use
+        run: pytest -q --cov=app --cov-report=xml
+      - uses: actions/upload-artifact@v4
+        with: {name: coverage, path: guardianmail-backend/coverage.xml}
