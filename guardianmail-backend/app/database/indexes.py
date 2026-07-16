@@ -177,3 +177,18 @@ async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
     await db.ai_decision_history.create_index([("user_id", 1), ("created_at", -1)])
     await db.ai_decision_history.create_index([("prompt_version", 1), ("created_at", -1)])
     await db.ai_decision_history.create_index([("model_name", 1), ("created_at", -1)])
+
+    # =============================================================
+    # MODULE 7 — OCR & ATTACHMENT SECURITY
+    # =============================================================
+    await db.ocr_reports.create_index([("user_id", 1), ("created_at", -1)])
+    await db.ocr_reports.create_index([("user_id", 1), ("status", 1), ("created_at", -1)])
+    await db.ocr_reports.create_index([("user_id", 1), ("attachment.sha256", 1)])
+    await db.ocr_reports.create_index([("email_id", 1), ("created_at", -1)], sparse=True)
+    await db.ocr_reports.create_index([("threat_report_id", 1)], sparse=True)
+    await db.ocr_reports.create_index([("ai_report_id", 1)], sparse=True)
+
+    await db.attachment_records.create_index([("user_id", 1), ("sha256", 1)], unique=True)
+    await db.attachment_records.create_index([("sha256", 1), ("last_seen_at", -1)])
+    await db.attachment_records.create_index([("user_id", 1), ("last_seen_at", -1)])
+    await db.attachment_records.create_index([("user_id", 1), ("risk_flags", 1)])

@@ -1,5 +1,6 @@
 """Model barrel."""
 from app.models.analytics import AnalyticsSnapshot
+from app.models.attachment_record import AttachmentRecord
 from app.models.audit import AuditLog
 from app.models.background_job import BackgroundJob
 from app.models.base import Document
@@ -16,6 +17,10 @@ from app.models.session import Session
 from app.models.threat import IndicatorRollup, ProviderStatus, ScoreBundle, ThreatReport
 from app.models.threat_indicator import AuthResults, ProviderVerdict, ThreatIndicator
 from app.models.threat_timeline import ThreatTimelineEvent
+from app.models.ocr_report import (
+    AttachmentAnalysis, DocumentMetadata, ExtractedPatterns, OCRReport,
+    QRResult, SecurityIndicators, SensitiveSummary,
+)
 from app.models.user import User
 
 __all__ = [
@@ -42,5 +47,13 @@ __all__ = [
     "EvidenceFile",
     "Notification",
     "AnalyticsSnapshot",
+    "AttachmentRecord",
     "BackgroundJob",
+    "OCRReport",
+    "AttachmentAnalysis",
+    "DocumentMetadata",
+    "ExtractedPatterns",
+    "QRResult",
+    "SecurityIndicators",
+    "SensitiveSummary",
 ]

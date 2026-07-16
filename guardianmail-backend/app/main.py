@@ -19,7 +19,7 @@ from app.api import health as health_router
 from app.api.v1 import (admin_review, ai, analytics, attachments, audit, auth,
                         community, complaints, dashboard, devices, emails,
                         evidence, gmail, link_safety, links, notifications,
-                        passcode, phishing, preferences, privacy, qr,
+                        ocr, passcode, phishing, preferences, privacy, qr,
                         rankings, reports, sessions, stream, threats,
                         webhook_deliveries, webhooks)
 from app.core.config import settings
@@ -90,5 +90,5 @@ for r in (auth, sessions, devices, passcode,
           gmail, emails, phishing, attachments, links, privacy,
           analytics, reports, ai, dashboard, community, notifications,
           qr, audit, webhooks, webhook_deliveries, rankings, preferences,
-          admin_review, stream, link_safety, complaints, evidence, threats):
+          admin_review, stream, link_safety, complaints, evidence, threats, ocr):
     app.include_router(r.router, prefix="/api/v1")
