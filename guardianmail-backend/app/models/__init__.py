@@ -17,6 +17,10 @@ from app.models.session import Session
 from app.models.threat import IndicatorRollup, ProviderStatus, ScoreBundle, ThreatReport
 from app.models.threat_indicator import AuthResults, ProviderVerdict, ThreatIndicator
 from app.models.threat_timeline import ThreatTimelineEvent
+from app.models.ocr_report import (
+    AttachmentAnalysis, DocumentMetadata, ExtractedPatterns, OCRReport,
+    QRResult, SecurityIndicators, SensitiveSummary,
+)
 from app.models.user import User
 
 __all__ = [
