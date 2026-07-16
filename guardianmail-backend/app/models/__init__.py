@@ -1,5 +1,6 @@
 """Model barrel."""
 from app.models.analytics import AnalyticsSnapshot
+from app.models.attachment_record import AttachmentRecord
 from app.models.audit import AuditLog
 from app.models.background_job import BackgroundJob
 from app.models.base import Document
