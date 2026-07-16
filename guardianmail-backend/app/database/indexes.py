@@ -53,6 +53,26 @@ async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
     await db.emails.create_index([("user_id", 1), ("sender_domain", 1), ("received_at", -1)])
     await db.emails.create_index([("user_id", 1), ("analysis_status", 1)])
     await db.emails.create_index([("user_id", 1), ("labels", 1)])
+    await db.emails.create_index([("user_id", 1), ("connection_id", 1), ("received_at", -1)])
+    await db.emails.create_index([("user_id", 1), ("history_id", 1)], sparse=True)
+
+    # ---- Gmail integration (Module 4) --------------------------------
+    await db.gmail_connections.create_index([("user_id", 1), ("email", 1)], unique=True)
+    await db.gmail_connections.create_index([("user_id", 1), ("status", 1)])
+    await db.gmail_connections.create_index("google_sub", sparse=True)
+
+    await db.email_threads.create_index([("user_id", 1), ("thread_id", 1)], unique=True)
+    await db.email_threads.create_index([("user_id", 1), ("last_message_at", -1)])
+    await db.email_threads.create_index([("user_id", 1), ("label_ids", 1)])
+
+    await db.email_labels.create_index([("user_id", 1), ("label_id", 1)], unique=True)
+    await db.email_labels.create_index([("user_id", 1), ("type", 1), ("name", 1)])
+
+    await db.sync_logs.create_index([("user_id", 1), ("started_at", -1)])
+    await db.sync_logs.create_index([("connection_id", 1), ("started_at", -1)])
+    await db.sync_logs.create_index([("status", 1), ("started_at", -1)])
+    # sync logs are transient audit records — retain 90 days
+    await db.sync_logs.create_index("started_at", expireAfterSeconds=60 * 60 * 24 * 90)
 
     await db.threats.create_index([("user_id", 1), ("created_at", -1)])
     await db.threats.create_index([("email_id", 1), ("created_at", -1)])
