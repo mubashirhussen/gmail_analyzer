@@ -23,6 +23,7 @@ from app.api.v1 import (admin_review, ai, analytics, attachments, audit, auth,
                         ocr, passcode, phishing, preferences, privacy, qr,
                         rankings, reports, sessions, stream, tasks, threats,
                         webhook_deliveries, webhooks)
+from app.api.v1 import complaint_platform  # Module 9
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
 from app.core.http import close_client
@@ -95,3 +96,8 @@ for r in (auth, sessions, devices, passcode,
           admin_review, stream, link_safety, complaints, evidence, threats,
           ocr, tasks):
     app.include_router(r.router, prefix="/api/v1")
+
+# Module 9 — complaint & evidence platform (additive routers).
+app.include_router(complaint_platform.router, prefix="/api/v1")
+app.include_router(complaint_platform.evidence_router, prefix="/api/v1")
+app.include_router(complaint_platform.reminder_router, prefix="/api/v1")

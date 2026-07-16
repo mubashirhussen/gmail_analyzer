@@ -45,6 +45,8 @@ celery = Celery(
         "app.workers.notification_tasks",
         "app.workers.analytics_tasks",
         "app.workers.maintenance_tasks",
+        # ---- Module 9: complaint & evidence platform ----
+        "app.workers.complaint_platform_tasks",
     ],
 )
 
@@ -69,6 +71,7 @@ celery.conf.update(
         "analytics.*": {"queue": Q_ANALYTICS},
         "notifications.*": {"queue": Q_NOTIFICATIONS},
         "complaints.*": {"queue": Q_COMPLAINTS},
+        "complaints_platform.*": {"queue": Q_COMPLAINTS},
         "maintenance.*": {"queue": Q_MAINTENANCE},
         "dead_letter.*": {"queue": Q_DEAD_LETTER},
         "priority.high.*": {"queue": Q_HIGH_PRIORITY},

@@ -121,6 +121,17 @@ async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
     await db.evidence_packs.create_index("sha256")
     await db.evidence_packs.create_index("expires_at", expireAfterSeconds=0)
 
+    # Module 9 — additive collections for the complaint/evidence platform.
+    await db.evidence_packs.create_index([("user_id", 1), ("created_at", -1)])
+    await db.evidence_custody.create_index([("pack_id", 1), ("at", 1)])
+    await db.evidence_downloads.create_index([("user_id", 1), ("at", -1)])
+    await db.evidence_downloads.create_index([("pack_id", 1), ("at", -1)])
+    await db.complaint_reminders.create_index([("status", 1), ("fire_at", 1)])
+    await db.complaint_reminders.create_index([("user_id", 1), ("fire_at", 1)])
+    await db.complaint_reminders.create_index([("complaint_id", 1), ("status", 1)])
+
+
+
     # =============================================================
     # NOTIFICATIONS & ANALYTICS
     # =============================================================
