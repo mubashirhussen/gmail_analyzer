@@ -18,6 +18,7 @@ import {
   CertInPanel, ChangePasscodeDialog, DataPrivacyPanel, HistoryPanel, RecommendationModal, SecurityTipsPanel,
   exportHistoryCSV, exportHistoryPDF, type RecommendationContext,
 } from "@/components/panels";
+import { FileComplaintPanel } from "@/components/file-complaint";
 import { extractUrls, scoreLinks, type LinkScore } from "@/lib/link-intel";
 import type { HistoryItem } from "@/lib/secure-store";
 
@@ -524,6 +525,7 @@ function DashboardView(props: {
           <AnalysisReport
             result={result} openRec={openRec}
             reportCount={reportCount} reported={reported} reporting={reporting} onReport={onReport}
+            channel={channel} sender={sender} subject={subject} body={body}
           />
         )}
       </section>
@@ -610,6 +612,7 @@ function ProtectionMeter({ score }: { score: number }) {
 
 function AnalysisReport({
   result, openRec, reportCount, reported, reporting, onReport,
+  channel, sender, subject, body,
 }: {
   result: EmailAnalysis;
   openRec: (r: string) => void;
@@ -617,7 +620,12 @@ function AnalysisReport({
   reported: boolean;
   reporting: boolean;
   onReport: () => void;
+  channel: "email" | "social";
+  sender: string;
+  subject: string;
+  body: string;
 }) {
+  const { session } = useAuth();
   const m = verdictMeta(result.verdict);
   const isDanger = result.verdict === "phishing" || result.verdict === "fraud";
   return (
@@ -730,6 +738,11 @@ function AnalysisReport({
           ))}
         </ul>
       </section>
+
+      <FileComplaintPanel ctx={{
+        sender, subject, body, channel, analysis: result,
+        reporterName: session?.account?.username, reporterEmail: session?.account?.email,
+      }} />
     </div>
   );
 }
