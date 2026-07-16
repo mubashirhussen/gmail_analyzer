@@ -115,3 +115,7 @@ app.include_router(analytics_platform.reports_router, prefix="/api/v1")
 # Module 11 — platform hardening endpoints (/api/v1/platform/*).
 from app.api.v1 import platform as platform_router  # noqa: E402
 app.include_router(platform_router.router, prefix="/api/v1")
+
+# Phase 16 — Explainable AI Security Copilot (/api/v1/copilot/*).
+from app.api.v1 import copilot as copilot_router  # noqa: E402
+app.include_router(copilot_router.router, prefix="/api/v1")
