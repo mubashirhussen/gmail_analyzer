@@ -1,0 +1,25 @@
+route:
+  receiver: default
+  group_by: [alertname, severity]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 3h
+  routes:
+    - matchers: [severity="critical"]
+      receiver: pager
+
+receivers:
+  - name: default
+    webhook_configs:
+      - url: http://api:8000/api/v1/webhooks/alert
+        send_resolved: true
+
+  - name: pager
+    webhook_configs:
+      - url: http://api:8000/api/v1/webhooks/alert-critical
+        send_resolved: true
+
+inhibit_rules:
+  - source_matchers: [severity="critical"]
+    target_matchers: [severity="warning"]
+    equal: [alertname, cluster]

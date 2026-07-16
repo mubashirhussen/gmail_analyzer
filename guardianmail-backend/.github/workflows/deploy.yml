@@ -1,0 +1,53 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      env:
+        description: "target environment"
+        type: choice
+        options: [staging, prod]
+        default: staging
+      image_tag:
+        description: "image tag to deploy (e.g. sha-abcdef1 or v1.2.3)"
+        required: true
+
+concurrency:
+  group: deploy-${{ inputs.env }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.env }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+      - name: Deploy over SSH
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          TAG:  ${{ inputs.image_tag }}
+          ENV:  ${{ inputs.env }}
+        run: |
+          ssh $USER@$HOST bash -s <<EOF
+            set -euo pipefail
+            cd /opt/guardianmail
+            export IMAGE_TAG="$TAG"
+            docker pull ghcr.io/${{ github.repository }}/guardianmail-backend:$TAG
+            docker compose -f deploy/docker-compose.prod.yml pull
+            docker compose -f deploy/docker-compose.prod.yml up -d --remove-orphans
+            for i in {1..30}; do
+              if curl -fsS http://localhost/healthz >/dev/null; then
+                echo "healthy"; exit 0
+              fi; sleep 5
+            done
+            echo "health check failed — rolling back"
+            docker compose -f deploy/docker-compose.prod.yml rollback || true
+            exit 1
+          EOF

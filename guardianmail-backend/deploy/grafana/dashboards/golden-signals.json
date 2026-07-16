@@ -1,0 +1,37 @@
+{
+  "title": "GuardianMail — Golden Signals",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "type": "stat", "title": "Requests/sec", "id": 1,
+      "targets": [{"expr": "sum(rate(gm_http_requests_total[1m]))"}],
+      "gridPos": {"h": 5, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat", "title": "Error rate (5xx %)", "id": 2,
+      "targets": [{"expr": "100 * sum(rate(gm_http_requests_total{status=~\"5..\"}[5m])) / sum(rate(gm_http_requests_total[5m]))"}],
+      "gridPos": {"h": 5, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "timeseries", "title": "Latency p50/p95/p99", "id": 3,
+      "targets": [
+        {"expr": "histogram_quantile(0.5, sum by (le)(rate(gm_http_request_duration_seconds_bucket[5m])))", "legendFormat": "p50"},
+        {"expr": "histogram_quantile(0.95, sum by (le)(rate(gm_http_request_duration_seconds_bucket[5m])))", "legendFormat": "p95"},
+        {"expr": "histogram_quantile(0.99, sum by (le)(rate(gm_http_request_duration_seconds_bucket[5m])))", "legendFormat": "p99"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+    },
+    {
+      "type": "timeseries", "title": "Rate-limit rejections", "id": 4,
+      "targets": [{"expr": "sum by (scope)(rate(gm_rate_limit_hits_total[5m]))"}],
+      "gridPos": {"h": 7, "w": 12, "x": 0, "y": 5}
+    },
+    {
+      "type": "timeseries", "title": "Circuit state (0=closed,1=half,2=open)", "id": 5,
+      "targets": [{"expr": "gm_circuit_state"}],
+      "gridPos": {"h": 7, "w": 12, "x": 12, "y": 8}
+    }
+  ]
+}
