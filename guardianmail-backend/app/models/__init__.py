@@ -9,11 +9,13 @@ from app.models.email import EmailDoc
 from app.models.evidence_pack import EvidenceFile, EvidencePack
 from app.models.login_history import LoginHistory
 from app.models.notification import Notification
+from app.models.provider_result import ProviderResult
 from app.models.refresh_token import RefreshToken
 from app.models.security_event import SecurityEvent
 from app.models.session import Session
-from app.models.threat import ThreatReport
+from app.models.threat import IndicatorRollup, ProviderStatus, ScoreBundle, ThreatReport
 from app.models.threat_indicator import AuthResults, ProviderVerdict, ThreatIndicator
+from app.models.threat_timeline import ThreatTimelineEvent
 from app.models.user import User
 
 __all__ = [
@@ -27,7 +29,12 @@ __all__ = [
     "SecurityEvent",
     "EmailDoc",
     "ThreatReport",
+    "ProviderStatus",
+    "ScoreBundle",
+    "IndicatorRollup",
     "ThreatIndicator",
+    "ThreatTimelineEvent",
+    "ProviderResult",
     "AuthResults",
     "ProviderVerdict",
     "Complaint",

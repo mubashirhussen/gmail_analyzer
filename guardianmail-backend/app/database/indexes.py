@@ -85,6 +85,28 @@ async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
     await db.threat_indicators.create_index([("kind", 1), ("value_hash", 1)])
     await db.threat_indicators.create_index([("kind", 1), ("severity", 1)])
 
+    # ---- Threat Intelligence Engine (Module 5) ------------------
+    # provider_results: cache + audit. TTL = 30d.
+    await db.provider_results.create_index(
+        [("provider", 1), ("artifact_hash", 1), ("created_at", -1)]
+    )
+    await db.provider_results.create_index(
+        [("threat_report_id", 1), ("created_at", 1)]
+    )
+    await db.provider_results.create_index([("user_id", 1), ("created_at", -1)])
+    await db.provider_results.create_index(
+        "created_at", expireAfterSeconds=30 * 24 * 3600
+    )
+
+    # threat_timeline: per-report event stream. TTL = 30d.
+    await db.threat_timeline.create_index(
+        [("threat_report_id", 1), ("sequence", 1)]
+    )
+    await db.threat_timeline.create_index([("user_id", 1), ("created_at", -1)])
+    await db.threat_timeline.create_index(
+        "created_at", expireAfterSeconds=30 * 24 * 3600
+    )
+
     # =============================================================
     # COMPLAINTS & EVIDENCE
     # =============================================================
