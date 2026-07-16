@@ -19,8 +19,9 @@ from app.api import health as health_router
 from app.api.v1 import (admin_review, ai, analytics, attachments, audit, auth,
                         community, complaints, dashboard, devices, emails,
                         evidence, gmail, link_safety, links, notifications,
-                        phishing, preferences, privacy, qr, rankings, reports,
-                        stream, webhook_deliveries, webhooks)
+                        passcode, phishing, preferences, privacy, qr,
+                        rankings, reports, sessions, stream,
+                        webhook_deliveries, webhooks)
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
 from app.core.http import close_client
@@ -85,8 +86,9 @@ register_exception_handlers(app)
 
 # ---- routers -------------------------------------------------------------
 app.include_router(health_router.router)
-for r in (auth, gmail, emails, phishing, attachments, links, privacy,
-          devices, analytics, reports, ai, dashboard, community, notifications,
+for r in (auth, sessions, devices, passcode,
+          gmail, emails, phishing, attachments, links, privacy,
+          analytics, reports, ai, dashboard, community, notifications,
           qr, audit, webhooks, webhook_deliveries, rankings, preferences,
           admin_review, stream, link_safety, complaints, evidence):
     app.include_router(r.router, prefix="/api/v1")
