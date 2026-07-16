@@ -1,49 +1,123 @@
+"""Index bootstrap — every collection's read pattern is enumerated here.
+
+Design rules
+------------
+* Compound indexes always lead with `user_id` for row-owner isolation.
+* Time-sorted lists index `(user_id, <time>)` DESC to serve the common
+  "latest first" query without a sort stage.
+* Every unique constraint is defined as an index (not just app logic).
+* TTL indexes back short-lived collections so eviction happens without
+  a nightly job.
+* `deleted_at` isn't indexed globally; queries scope by user first, so
+  the compound index is already selective.
+"""
 from motor.motor_asyncio import AsyncIOMotorDatabase
+
+# TTL windows (seconds)
+NOTIFICATION_TTL = 60 * 60 * 24 * 30       # 30 days
+JOB_TTL = 60 * 60 * 24 * 60                # 60 days
+LOGIN_HISTORY_TTL = 60 * 60 * 24 * 180     # 180 days
+SECURITY_EVENT_TTL = 60 * 60 * 24 * 365    # 365 days
 
 
 async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
-    # ---- auth core ------------------------------------------------------
+    # =============================================================
+    # AUTH & IDENTITY
+    # =============================================================
     await db.users.create_index("email", unique=True)
     await db.users.create_index("google_sub", sparse=True)
+    await db.users.create_index("status")
+
     await db.devices.create_index([("user_id", 1), ("fingerprint", 1)], unique=True)
     await db.devices.create_index([("user_id", 1), ("last_seen_at", -1)])
+    await db.devices.create_index([("user_id", 1), ("trusted", 1)])
+
     await db.sessions.create_index([("user_id", 1), ("status", 1)])
-    await db.sessions.create_index("expires_at", expireAfterSeconds=0)
     await db.sessions.create_index([("device_id", 1), ("status", 1)])
+    await db.sessions.create_index("expires_at", expireAfterSeconds=0)
+
     await db.refresh_tokens.create_index("jti", unique=True)
     await db.refresh_tokens.create_index([("session_id", 1), ("status", 1)])
     await db.refresh_tokens.create_index("expires_at", expireAfterSeconds=0)
+
     await db.login_history.create_index([("user_id", 1), ("at", -1)])
     await db.login_history.create_index([("email", 1), ("at", -1)])
-    # ---- existing app collections --------------------------------------
-    await db.emails.create_index([("user_id", 1), ("received_at", -1)])
+    await db.login_history.create_index("at", expireAfterSeconds=LOGIN_HISTORY_TTL)
+
+    # =============================================================
+    # EMAILS & THREAT PIPELINE
+    # =============================================================
     await db.emails.create_index("gmail_id", unique=True, sparse=True)
+    await db.emails.create_index([("user_id", 1), ("received_at", -1)])
+    await db.emails.create_index([("user_id", 1), ("thread_id", 1)])
+    await db.emails.create_index([("user_id", 1), ("sender_domain", 1), ("received_at", -1)])
+    await db.emails.create_index([("user_id", 1), ("analysis_status", 1)])
+    await db.emails.create_index([("user_id", 1), ("labels", 1)])
+
     await db.threats.create_index([("user_id", 1), ("created_at", -1)])
-    await db.reports.create_index([("user_id", 1), ("period", 1)])
+    await db.threats.create_index([("email_id", 1), ("created_at", -1)])
+    await db.threats.create_index([("user_id", 1), ("risk_score", -1), ("created_at", -1)])
+    await db.threats.create_index([("user_id", 1), ("threat_category", 1), ("created_at", -1)])
+    await db.threats.create_index([("review_status", 1), ("created_at", -1)])
+
+    await db.threat_indicators.create_index([("threat_report_id", 1), ("kind", 1)])
+    await db.threat_indicators.create_index([("user_id", 1), ("created_at", -1)])
+    await db.threat_indicators.create_index([("kind", 1), ("value_hash", 1)])
+    await db.threat_indicators.create_index([("kind", 1), ("severity", 1)])
+
+    # =============================================================
+    # COMPLAINTS & EVIDENCE
+    # =============================================================
+    await db.complaints.create_index([("user_id", 1), ("created_at", -1)])
+    await db.complaints.create_index([("user_id", 1), ("status", 1)])
+    await db.complaints.create_index([("status", 1), ("scheduled_for", 1)])
+    await db.complaints.create_index([("threat_report_id", 1), ("created_at", -1)])
+    await db.complaint_templates.create_index([("destination", 1), ("category", 1)], unique=True)
+
+    await db.evidence_packs.create_index([("user_id", 1), ("generated_at", -1)])
+    await db.evidence_packs.create_index([("threat_report_id", 1), ("created_at", -1)])
+    await db.evidence_packs.create_index("sha256")
+    await db.evidence_packs.create_index("expires_at", expireAfterSeconds=0)
+
+    # =============================================================
+    # NOTIFICATIONS & ANALYTICS
+    # =============================================================
+    await db.notifications.create_index([("user_id", 1), ("created_at", -1)])
+    await db.notifications.create_index([("user_id", 1), ("read", 1), ("created_at", -1)])
+    await db.notifications.create_index("created_at", expireAfterSeconds=NOTIFICATION_TTL)
+
+    await db.analytics.create_index([("user_id", 1), ("period", 1), ("at", -1)])
+    await db.analytics.create_index([("user_id", 1), ("at", -1)])
+
+    # =============================================================
+    # SECURITY / AUDIT / JOBS
+    # =============================================================
+    await db.security_events.create_index([("user_id", 1), ("created_at", -1)])
+    await db.security_events.create_index([("kind", 1), ("severity", 1), ("created_at", -1)])
+    await db.security_events.create_index("created_at", expireAfterSeconds=SECURITY_EVENT_TTL)
+
     await db.audit_logs.create_index([("user_id", 1), ("at", -1)])
     await db.audit_logs.create_index([("action", 1), ("at", -1)])
+    await db.audit_logs.create_index([("module", 1), ("at", -1)])
+
+    await db.background_jobs.create_index([("user_id", 1), ("created_at", -1)])
+    await db.background_jobs.create_index([("status", 1), ("scheduled_for", 1)])
+    await db.background_jobs.create_index([("job_type", 1), ("status", 1)])
+    await db.background_jobs.create_index("finished_at", expireAfterSeconds=JOB_TTL, sparse=True)
+
+    # =============================================================
+    # LEGACY / EXISTING BUSINESS COLLECTIONS (kept)
+    # =============================================================
     await db.community_reports.create_index("hash", unique=True)
     await db.community_reports.create_index([("hash", 1), ("reporters", 1)])
-    await db.notifications.create_index([("user_id", 1), ("created_at", -1)])
-    await db.analytics.create_index([("user_id", 1), ("at", -1)])
+    await db.reports.create_index([("user_id", 1), ("period", 1)])
     await db.automation_rules.create_index([("user_id", 1), ("enabled", 1)])
     await db.artifact_stats.create_index("hash", unique=True)
     await db.artifact_stats.create_index([("kind", 1), ("last_seen", -1)])
     await db.artifact_events.create_index([("hash", 1), ("at", -1)])
     await db.artifact_events.create_index([("user_id", 1), ("at", -1)])
-    await db.device_artifacts.create_index([("user_id", 1), ("device_fingerprint", 1), ("at", -1)])
-    await db.security_events.create_index([("user_id", 1), ("at", -1)])
-    await db.security_events.create_index([("user_id", 1), ("created_at", -1)])
-    await db.security_events.create_index([("kind", 1), ("severity", 1)])
+    await db.device_artifacts.create_index(
+        [("user_id", 1), ("device_fingerprint", 1), ("at", -1)]
+    )
     await db.webhook_deliveries.create_index([("user_id", 1), ("created_at", -1)])
     await db.webhook_deliveries.create_index([("status", 1), ("next_attempt_at", 1)])
-    await db.threats.create_index([("review_status", 1), ("created_at", -1)])
-    await db.threats.create_index([("risk_score", -1), ("created_at", -1)])
-    await db.complaints.create_index([("user_id", 1), ("created_at", -1)])
-    await db.complaints.create_index([("user_id", 1), ("status", 1)])
-    await db.complaints.create_index([("status", 1), ("scheduled_for", 1)])
-    await db.complaint_templates.create_index([("destination", 1), ("category", 1)], unique=True)
-    await db.evidence_packs.create_index([("user_id", 1), ("generated_at", -1)])
-    await db.evidence_packs.create_index("sha256")
-
-
