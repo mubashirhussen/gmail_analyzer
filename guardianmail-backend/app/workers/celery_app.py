@@ -26,6 +26,7 @@ celery = Celery(
         "app.workers.webhook_tasks",
         "app.workers.complaint_tasks",
         "app.workers.threat_tasks",
+        "app.workers.ai_tasks",
     ],
 )
 
