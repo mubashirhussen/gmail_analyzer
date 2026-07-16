@@ -22,4 +22,8 @@ BEAT_SCHEDULE = {
         "task": "security.cleanup_sessions",
         "schedule": crontab(minute=0, hour="*/6"),
     },
+    "complaint-reminders": {
+        "task": "complaints.sweep_reminders",
+        "schedule": crontab(minute="*/5"),
+    },
 }
