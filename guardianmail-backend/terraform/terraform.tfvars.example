@@ -1,0 +1,6 @@
+region              = "ap-south-1"
+environment         = "prod"
+instance_type       = "t3.large"
+key_name            = "REPLACE_ME_KEYPAIR"
+allowed_ssh_cidr    = "203.0.113.10/32"
+evidence_bucket_name = "guardianmail-prod-evidence"
