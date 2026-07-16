@@ -49,6 +49,8 @@ celery = Celery(
         "app.workers.complaint_platform_tasks",
         # ---- Module 10: analytics platform ----
         "app.workers.analytics_platform_tasks",
+        # ---- Phase 17: advanced threat / fraud detection ----
+        "app.workers.detection_tasks",
     ],
 )
 
