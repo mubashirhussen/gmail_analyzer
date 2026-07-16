@@ -83,6 +83,10 @@ if settings.trusted_hosts_list and settings.trusted_hosts_list != ["*"]:
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.REQUEST_MAX_BODY_BYTES)
 app.add_middleware(RequestContextMiddleware)
+# Module 11 — observability (Prometheus + perf sampler). Inner so it wraps
+# the actual handler and captures the final status code.
+from app.middlewares.observability import ObservabilityMiddleware  # noqa: E402
+app.add_middleware(ObservabilityMiddleware)
 
 register_exception_handlers(app)
 
@@ -107,3 +111,7 @@ from app.api.v1 import analytics_platform  # noqa: E402
 app.include_router(analytics_platform.router, prefix="/api/v1")
 app.include_router(analytics_platform.analytics_router, prefix="/api/v1")
 app.include_router(analytics_platform.reports_router, prefix="/api/v1")
+
+# Module 11 — platform hardening endpoints (/api/v1/platform/*).
+from app.api.v1 import platform as platform_router  # noqa: E402
+app.include_router(platform_router.router, prefix="/api/v1")
