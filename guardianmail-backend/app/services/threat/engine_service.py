@@ -156,9 +156,46 @@ class ThreatEngineService:
         raise ValueError("URL-scan rechecks require the original URL — not stored")
 
     # ---- artefact extraction ------------------------------------------
+    def _headers_as_pairs(self, email) -> list[dict]:
+        """Convert `EmailDoc.headers` (structured `ParsedHeaders`) into the
+        `[{name, value}]` shape the header/auth analysers consume.
+        """
+        h = getattr(email, "headers", None)
+        if h is None:
+            return []
+        if isinstance(h, list):
+            return h  # already pairs (forwarded scans)
+        out: list[dict] = []
+        mapping = {
+            "message_id": "Message-ID",
+            "return_path": "Return-Path",
+            "reply_to": "Reply-To",
+            "authentication_results": "Authentication-Results",
+            "x_originating_ip": "X-Originating-IP",
+            "user_agent": "User-Agent",
+            "mailer": "X-Mailer",
+            "content_type": "Content-Type",
+            "list_unsubscribe": "List-Unsubscribe",
+        }
+        for attr, name in mapping.items():
+            v = getattr(h, attr, None)
+            if v:
+                out.append({"name": name, "value": str(v)})
+        for rcv in (getattr(h, "received", None) or []):
+            out.append({"name": "Received", "value": str(rcv)})
+        from_hdr = getattr(email, "sender", "") or ""
+        if from_hdr:
+            out.append({"name": "From", "value": from_hdr})
+        return out
+
     def _urls_from_email(self, email) -> list[str]:
         urls: list[str] = []
-        urls.extend(getattr(email, "urls", None) or [])
+        for u in getattr(email, "urls", None) or []:
+            n = getattr(u, "normalized", None) or getattr(u, "raw", None) or (
+                u.get("normalized") if isinstance(u, dict) else None
+            )
+            if n:
+                urls.append(n)
         body = getattr(email, "body_text", None) or getattr(email, "snippet", "") or ""
         html = getattr(email, "body_html", None) or ""
         urls.extend(extract_urls(f"{body}\n{html}", limit=100))
@@ -171,6 +208,28 @@ class ThreatEngineService:
                 out.append(n)
         return out[:50]
 
+    def _attachments_as_dicts(self, email) -> list[dict]:
+        raw = getattr(email, "attachments", None) or []
+        out: list[dict] = []
+        for a in raw:
+            if isinstance(a, dict):
+                out.append({
+                    "filename": a.get("filename"),
+                    "mime_type": a.get("mime") or a.get("mime_type"),
+                    "size": a.get("size") or 0,
+                    "sha256": a.get("sha256"),
+                    "encrypted": bool(a.get("encrypted", False)),
+                })
+                continue
+            out.append({
+                "filename": getattr(a, "filename", None),
+                "mime_type": getattr(a, "mime", None),
+                "size": getattr(a, "size", 0),
+                "sha256": getattr(a, "sha256", None),
+                "encrypted": bool(getattr(a, "encrypted", False)),
+            })
+        return out
+
     def _artefacts_for_email(self, email) -> Iterable[tuple[str, str]]:
         urls = self._urls_from_email(email)
         domains: set[str] = set()
@@ -178,13 +237,11 @@ class ThreatEngineService:
             d = registered_domain(u)
             if d:
                 domains.add(d)
-        # Sender domain always analysed.
         sender = getattr(email, "sender_email", "") or getattr(email, "sender", "") or ""
         sdom = domain_of_email(sender)
         if sdom:
             domains.add(sdom)
-        # Origin IP if headers already parsed.
-        headers = getattr(email, "headers", None) or []
+        headers = self._headers_as_pairs(email)
         origin_ip = header_analysis_service.extract_origin_ip(headers)
         artefacts: list[tuple[str, str]] = []
         for u in urls:
@@ -193,8 +250,7 @@ class ThreatEngineService:
             artefacts.append(("domain", d))
         if origin_ip:
             artefacts.append(("ip", origin_ip))
-        # File hashes on attachments (Gmail rarely exposes; opportunistic)
-        for att in (getattr(email, "attachments", None) or []):
+        for att in self._attachments_as_dicts(email):
             sha = (att.get("sha256") or "").strip().lower()
             if sha and len(sha) == 64:
                 artefacts.append(("file_hash", sha))
