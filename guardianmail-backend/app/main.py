@@ -19,7 +19,7 @@ from app.api import health as health_router
 from app.api.v1 import (admin_review, ai, analytics, attachments, audit, auth,
                         community, complaints, dashboard, devices, emails,
                         evidence, gmail, link_safety, links, notifications,
-                        passcode, phishing, preferences, privacy, qr,
+                        ocr, passcode, phishing, preferences, privacy, qr,
                         rankings, reports, sessions, stream, threats,
                         webhook_deliveries, webhooks)
 from app.core.config import settings
