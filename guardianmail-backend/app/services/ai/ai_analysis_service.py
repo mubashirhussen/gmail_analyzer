@@ -17,7 +17,7 @@ from app.core.clock import now_utc
 from app.core.exceptions import NotFoundError
 from app.core.logging import get_logger
 from app.database.mongodb import get_db
-from app.database.redis import redis_client
+from app.database.redis import get_redis
 from app.models.ai_report import AIReport, ConfidenceBreakdown
 from app.repositories.ai_decisions import AIDecisionHistoryRepository
 from app.repositories.ai_prompts import AIPromptRepository
