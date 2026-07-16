@@ -47,6 +47,8 @@ celery = Celery(
         "app.workers.maintenance_tasks",
         # ---- Module 9: complaint & evidence platform ----
         "app.workers.complaint_platform_tasks",
+        # ---- Module 10: analytics platform ----
+        "app.workers.analytics_platform_tasks",
     ],
 )
 
@@ -76,6 +78,7 @@ celery.conf.update(
         "dead_letter.*": {"queue": Q_DEAD_LETTER},
         "priority.high.*": {"queue": Q_HIGH_PRIORITY},
         "priority.low.*": {"queue": Q_LOW_PRIORITY},
+        "analytics_platform.*": {"queue": Q_ANALYTICS},
     },
     beat_schedule=BEAT_SCHEDULE,
     timezone="UTC",

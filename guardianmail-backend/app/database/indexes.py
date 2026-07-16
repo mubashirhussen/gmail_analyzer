@@ -203,3 +203,23 @@ async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
     await db.attachment_records.create_index([("sha256", 1), ("last_seen_at", -1)])
     await db.attachment_records.create_index([("user_id", 1), ("last_seen_at", -1)])
     await db.attachment_records.create_index([("user_id", 1), ("risk_flags", 1)])
+
+    # =============================================================
+    # MODULE 10 — ANALYTICS PLATFORM
+    # =============================================================
+    await db.trend_series.create_index(
+        [("user_id", 1), ("metric", 1), ("granularity", 1), ("bucket_start", 1)],
+        unique=True,
+    )
+    await db.trend_series.create_index(
+        [("user_id", 1), ("metric", 1), ("bucket_start", -1)]
+    )
+    await db.report_records.create_index([("user_id", 1), ("requested_at", -1)])
+    await db.report_records.create_index([("user_id", 1), ("kind", 1), ("requested_at", -1)])
+    await db.report_records.create_index([("status", 1), ("requested_at", -1)])
+    await db.report_records.create_index("download_token", unique=True, sparse=True)
+    await db.report_records.create_index("expires_at", expireAfterSeconds=0, sparse=True)
+    await db.dashboard_cache.create_index(
+        [("user_id", 1), ("scope", 1), ("time_filter", 1)], unique=True
+    )
+    await db.dashboard_cache.create_index([("computed_at", -1)])

@@ -101,3 +101,9 @@ for r in (auth, sessions, devices, passcode,
 app.include_router(complaint_platform.router, prefix="/api/v1")
 app.include_router(complaint_platform.evidence_router, prefix="/api/v1")
 app.include_router(complaint_platform.reminder_router, prefix="/api/v1")
+
+# Module 10 — analytics, dashboard, and reporting platform.
+from app.api.v1 import analytics_platform  # noqa: E402
+app.include_router(analytics_platform.router, prefix="/api/v1")
+app.include_router(analytics_platform.analytics_router, prefix="/api/v1")
+app.include_router(analytics_platform.reports_router, prefix="/api/v1")
