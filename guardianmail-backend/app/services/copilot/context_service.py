@@ -10,10 +10,10 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.database.mongodb import get_db
-from app.repositories.emails import EmailsRepository
-from app.repositories.ocr_reports import OcrReportsRepository
-from app.repositories.attachment_records import AttachmentRecordsRepository
-from app.repositories.evidence_packs import EvidencePacksRepository
+from app.repositories.emails import EmailRepository
+from app.repositories.ocr_reports import OCRReportRepository
+from app.repositories.attachment_records import AttachmentRecordRepository
+from app.repositories.evidence_packs import EvidencePackRepository
 from app.repositories.provider_results import ProviderResultRepository
 from app.repositories.threat_indicators import ThreatIndicatorRepository
 from app.repositories.threats import ThreatReportRepository
