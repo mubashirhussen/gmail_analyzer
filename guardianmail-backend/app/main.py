@@ -119,3 +119,9 @@ app.include_router(platform_router.router, prefix="/api/v1")
 # Phase 16 — Explainable AI Security Copilot (/api/v1/copilot/*).
 from app.api.v1 import copilot as copilot_router  # noqa: E402
 app.include_router(copilot_router.router, prefix="/api/v1")
+
+# Phase 17 — Advanced Threat & Fraud Detection (/api/v1/detection/*).
+from app.api.v1 import detection as detection_router  # noqa: E402
+app.include_router(detection_router.router, prefix="/api/v1")
+app.include_router(detection_router.risk_router, prefix="/api/v1")
+app.include_router(detection_router.fraud_router, prefix="/api/v1")
