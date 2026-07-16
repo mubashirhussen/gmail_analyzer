@@ -79,12 +79,12 @@ class ContextService:
         ctx = BuiltContext(scope=scope)
 
         threats = ThreatReportRepository(db)
-        emails = EmailsRepository(db)
+        emails = EmailRepository(db)
         providers = ProviderResultRepository(db)
         indicators = ThreatIndicatorRepository(db)
-        ocr_repo = OcrReportsRepository(db)
-        attach_repo = AttachmentRecordsRepository(db)
-        packs = EvidencePacksRepository(db)
+        ocr_repo = OCRReportRepository(db)
+        attach_repo = AttachmentRecordRepository(db)
+        packs = EvidencePackRepository(db)
 
         threat_doc = None
         threat_id = scope.get("threat_id")
