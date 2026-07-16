@@ -2,15 +2,26 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 
 async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
+    # ---- auth core ------------------------------------------------------
     await db.users.create_index("email", unique=True)
+    await db.users.create_index("google_sub", sparse=True)
     await db.devices.create_index([("user_id", 1), ("fingerprint", 1)], unique=True)
-    await db.sessions.create_index("session_token", unique=True)
+    await db.devices.create_index([("user_id", 1), ("last_seen_at", -1)])
+    await db.sessions.create_index([("user_id", 1), ("status", 1)])
     await db.sessions.create_index("expires_at", expireAfterSeconds=0)
+    await db.sessions.create_index([("device_id", 1), ("status", 1)])
+    await db.refresh_tokens.create_index("jti", unique=True)
+    await db.refresh_tokens.create_index([("session_id", 1), ("status", 1)])
+    await db.refresh_tokens.create_index("expires_at", expireAfterSeconds=0)
+    await db.login_history.create_index([("user_id", 1), ("at", -1)])
+    await db.login_history.create_index([("email", 1), ("at", -1)])
+    # ---- existing app collections --------------------------------------
     await db.emails.create_index([("user_id", 1), ("received_at", -1)])
     await db.emails.create_index("gmail_id", unique=True, sparse=True)
     await db.threats.create_index([("user_id", 1), ("created_at", -1)])
     await db.reports.create_index([("user_id", 1), ("period", 1)])
     await db.audit_logs.create_index([("user_id", 1), ("at", -1)])
+    await db.audit_logs.create_index([("action", 1), ("at", -1)])
     await db.community_reports.create_index("hash", unique=True)
     await db.community_reports.create_index([("hash", 1), ("reporters", 1)])
     await db.notifications.create_index([("user_id", 1), ("created_at", -1)])
