@@ -1,5 +1,6 @@
 """Repository barrel — DI-friendly single import site."""
 from app.repositories.analytics import AnalyticsRepository
+from app.repositories.attachment_records import AttachmentRecordRepository
 from app.repositories.audit_logs import AuditLogRepository
 from app.repositories.background_jobs import BackgroundJobRepository
 from app.repositories.base import BaseRepository
