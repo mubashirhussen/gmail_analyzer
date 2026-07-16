@@ -56,7 +56,7 @@ register_exception_handlers(app)
 for r in (auth, gmail, emails, phishing, attachments, links, privacy,
           devices, analytics, reports, ai, dashboard, community, notifications,
           qr, audit, webhooks, webhook_deliveries, rankings, preferences,
-          admin_review, stream):
+          admin_review, stream, link_safety, complaints, evidence):
     app.include_router(r.router, prefix="/api/v1")
 
 
