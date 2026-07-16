@@ -135,3 +135,14 @@ app.include_router(soc_router.alerts_router, prefix="/api/v1")
 app.include_router(soc_router.reports_router, prefix="/api/v1")
 app.include_router(soc_router.system_router, prefix="/api/v1")
 app.include_router(soc_router.audit_router, prefix="/api/v1")
+
+# Phase 19 — Observability & Incident Response (/api/v1/observability/*, /traces, /ops/*).
+from app.api.v1 import observability as obs_router  # noqa: E402
+from app.core.tracing import configure_tracing  # noqa: E402
+configure_tracing(service_name=settings.APP_NAME)
+app.include_router(obs_router.router, prefix="/api/v1")
+app.include_router(obs_router.metrics_router, prefix="/api/v1")
+app.include_router(obs_router.traces_router, prefix="/api/v1")
+app.include_router(obs_router.system_router, prefix="/api/v1")
+app.include_router(obs_router.ops_alerts_router, prefix="/api/v1")
+app.include_router(obs_router.ops_incidents_router, prefix="/api/v1")

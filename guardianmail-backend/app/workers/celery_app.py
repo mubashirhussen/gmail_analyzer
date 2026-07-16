@@ -53,6 +53,8 @@ celery = Celery(
         "app.workers.detection_tasks",
         # ---- Phase 18: enterprise SOC ----
         "app.workers.soc_tasks",
+        # ---- Phase 19: observability ----
+        "app.workers.observability_tasks",
     ],
 )
 
