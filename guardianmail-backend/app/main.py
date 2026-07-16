@@ -19,8 +19,9 @@ from app.api import health as health_router
 from app.api.v1 import (admin_review, ai, analytics, attachments, audit, auth,
                         community, complaints, dashboard, devices, emails,
                         evidence, gmail, link_safety, links, notifications,
-                        phishing, preferences, privacy, qr, rankings, reports,
-                        stream, webhook_deliveries, webhooks)
+                        passcode, phishing, preferences, privacy, qr,
+                        rankings, reports, sessions, stream,
+                        webhook_deliveries, webhooks)
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
 from app.core.http import close_client
