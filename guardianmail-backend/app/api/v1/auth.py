@@ -1,72 +1,87 @@
-"""Google OAuth 2.0 + JWT (access/refresh) + device trust."""
-import uuid
-from datetime import datetime, timezone
+"""Authentication API — Google OAuth, JWT lifecycle, profile."""
+from __future__ import annotations
 
-import httpx
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, EmailStr
+from fastapi import APIRouter, Depends, Header, Request
 
-from app.core.config import settings
-from app.core.security import create_access_token, create_refresh_token, decode_token, require_user
-from app.database.mongodb import get_db
+from app.api.dependencies import CurrentUser, Principal
+from app.schemas.auth import (AccessTokenOnly, LoginResponse, OAuthCallbackIn,
+                              OAuthLoginStart, OAuthLoginStartResponse,
+                              RefreshIn, TokenPair, UserProfile)
+from app.services.auth.auth_service import auth_service
+from app.services.auth.session_service import session_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-class GoogleExchange(BaseModel):
-    code: str
-    redirect_uri: str | None = None
+def _client_ip(request: Request) -> str:
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.client.host if request.client else ""
 
 
-@router.post("/google")
-async def google_exchange(body: GoogleExchange, db=Depends(get_db)):
-    """Exchange auth code for Google tokens, then mint our own JWTs."""
-    async with httpx.AsyncClient(timeout=15) as c:
-        r = await c.post("https://oauth2.googleapis.com/token", data={
-            "code": body.code,
-            "client_id": settings.GOOGLE_OAUTH_CLIENT_ID,
-            "client_secret": settings.GOOGLE_OAUTH_CLIENT_SECRET,
-            "redirect_uri": body.redirect_uri or settings.GOOGLE_OAUTH_REDIRECT,
-            "grant_type": "authorization_code",
-        })
-        if r.status_code != 200:
-            raise HTTPException(400, f"google exchange failed: {r.text}")
-        tok = r.json()
-        u = await c.get("https://www.googleapis.com/oauth2/v2/userinfo",
-                        headers={"Authorization": f"Bearer {tok['access_token']}"})
-        u.raise_for_status()
-        info = u.json()
-
-    now = datetime.now(timezone.utc)
-    await db.users.update_one(
-        {"email": info["email"]},
-        {"$setOnInsert": {"created_at": now}, "$set": {"name": info.get("name"), "picture": info.get("picture"), "last_login_at": now}},
-        upsert=True,
+# ---- OAuth --------------------------------------------------------------
+@router.post("/google/login", response_model=OAuthLoginStartResponse)
+async def google_login_start(body: OAuthLoginStart):
+    url, state = await auth_service.start_google_login(
+        redirect_uri=body.redirect_uri, remember_me=body.remember_me,
     )
-    user = await db.users.find_one({"email": info["email"]})
-    jti = uuid.uuid4().hex
-    return {
-        "access_token": create_access_token(str(user["_id"]), email=user["email"]),
-        "refresh_token": create_refresh_token(str(user["_id"]), jti),
-        "user": {"id": str(user["_id"]), "email": user["email"], "name": user.get("name")},
-    }
+    return OAuthLoginStartResponse(authorize_url=url, state=state)
 
 
-class RefreshBody(BaseModel):
-    refresh_token: str
+@router.post("/google/callback", response_model=LoginResponse)
+async def google_callback(
+    body: OAuthCallbackIn,
+    request: Request,
+    x_device_fingerprint: str | None = Header(default=None),
+):
+    result = await auth_service.complete_google_login(
+        code=body.code, state=body.state,
+        ip=_client_ip(request),
+        user_agent=request.headers.get("user-agent", ""),
+        client_fp=x_device_fingerprint,
+    )
+    user, session, device = result["user"], result["session"], result["device"]
+    return LoginResponse(
+        user=UserProfile(
+            id=user.id, email=user.email, email_verified=user.email_verified,
+            name=user.name, picture=user.picture, status=user.status,
+            last_login_at=user.last_login_at,
+        ),
+        session_id=session.id, device_id=device.id,
+        tokens=TokenPair(access_token=result["access"],
+                          refresh_token=result["refresh"],
+                          expires_in=result["expires_in"]),
+    )
 
 
-@router.post("/refresh")
-async def refresh(body: RefreshBody):
-    payload = decode_token(body.refresh_token)
-    if payload.get("type") != "refresh":
-        raise HTTPException(401, "not a refresh token")
-    return {"access_token": create_access_token(payload["sub"])}
+# ---- tokens -------------------------------------------------------------
+@router.post("/refresh", response_model=TokenPair)
+async def refresh(body: RefreshIn, request: Request):
+    access, refresh_tok, expires_in, _ = await session_service.refresh(
+        body.refresh_token, ip=_client_ip(request),
+    )
+    return TokenPair(access_token=access, refresh_token=refresh_tok, expires_in=expires_in)
 
 
-@router.get("/me")
-async def me(user=Depends(require_user), db=Depends(get_db)):
-    doc = await db.users.find_one({"_id": user["sub"]}) or await db.users.find_one({"email": user.get("email")})
-    if not doc:
-        raise HTTPException(404, "user not found")
-    return {"id": str(doc["_id"]), "email": doc["email"], "name": doc.get("name")}
+@router.post("/logout")
+async def logout(p: Principal = CurrentUser):
+    await session_service.revoke(p.session_id, user_id=p.user_id,
+                                  reason="logout", access_jti=p.access_jti)
+    return {"ok": True}
+
+
+@router.post("/logout-all")
+async def logout_all(p: Principal = CurrentUser):
+    n = await session_service.revoke_all(p.user_id, except_session=p.session_id)
+    return {"ok": True, "revoked": n}
+
+
+# ---- profile ------------------------------------------------------------
+@router.get("/profile", response_model=UserProfile)
+@router.get("/me", response_model=UserProfile)          # legacy alias
+async def profile(p: Principal = CurrentUser):
+    u = p.user
+    return UserProfile(id=u.id, email=u.email, email_verified=u.email_verified,
+                       name=u.name, picture=u.picture, status=u.status,
+                       last_login_at=u.last_login_at)
