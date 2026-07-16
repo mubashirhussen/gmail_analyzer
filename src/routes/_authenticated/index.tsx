@@ -611,6 +611,7 @@ function ProtectionMeter({ score }: { score: number }) {
 
 function AnalysisReport({
   result, openRec, reportCount, reported, reporting, onReport,
+  channel, sender, subject, body,
 }: {
   result: EmailAnalysis;
   openRec: (r: string) => void;
@@ -618,7 +619,12 @@ function AnalysisReport({
   reported: boolean;
   reporting: boolean;
   onReport: () => void;
+  channel: "email" | "social";
+  sender: string;
+  subject: string;
+  body: string;
 }) {
+  const { session } = useAuth();
   const m = verdictMeta(result.verdict);
   const isDanger = result.verdict === "phishing" || result.verdict === "fraud";
   return (
