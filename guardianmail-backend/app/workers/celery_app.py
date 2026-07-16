@@ -38,6 +38,7 @@ celery.conf.update(
         "threat.*": {"queue": "threat"},
         "reports.*": {"queue": "report"},
         "security.*": {"queue": "default"},
+        "ai.*": {"queue": "ai"},
     },
     beat_schedule=BEAT_SCHEDULE,
     timezone="UTC",
