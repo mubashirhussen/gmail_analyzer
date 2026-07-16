@@ -26,6 +26,7 @@ celery = Celery(
         "app.workers.webhook_tasks",
         "app.workers.complaint_tasks",
         "app.workers.threat_tasks",
+        "app.workers.ai_tasks",
     ],
 )
 
@@ -37,6 +38,7 @@ celery.conf.update(
         "threat.*": {"queue": "threat"},
         "reports.*": {"queue": "report"},
         "security.*": {"queue": "default"},
+        "ai.*": {"queue": "ai"},
     },
     beat_schedule=BEAT_SCHEDULE,
     timezone="UTC",
