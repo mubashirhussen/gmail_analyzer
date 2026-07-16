@@ -90,5 +90,5 @@ for r in (auth, sessions, devices, passcode,
           gmail, emails, phishing, attachments, links, privacy,
           analytics, reports, ai, dashboard, community, notifications,
           qr, audit, webhooks, webhook_deliveries, rankings, preferences,
-          admin_review, stream, link_safety, complaints, evidence, threats):
+          admin_review, stream, link_safety, complaints, evidence, threats, ocr):
     app.include_router(r.router, prefix="/api/v1")
