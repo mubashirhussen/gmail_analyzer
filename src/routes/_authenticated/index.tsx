@@ -525,7 +525,6 @@ function DashboardView(props: {
             result={result} openRec={openRec}
             reportCount={reportCount} reported={reported} reporting={reporting} onReport={onReport}
             channel={channel} sender={sender} subject={subject} body={body}
-            reporterName={session?.username} reporterEmail={session?.email}
           />
         )}
       </section>
