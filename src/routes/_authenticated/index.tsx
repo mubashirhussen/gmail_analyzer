@@ -737,6 +737,11 @@ function AnalysisReport({
           ))}
         </ul>
       </section>
+
+      <FileComplaintPanel ctx={{
+        sender, subject, body, channel, analysis: result,
+        reporterName: session?.username, reporterEmail: session?.email,
+      }} />
     </div>
   );
 }
