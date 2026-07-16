@@ -13,6 +13,7 @@ celery = Celery(
         "app.workers.phishing_tasks",
         "app.workers.report_tasks",
         "app.workers.webhook_tasks",
+        "app.workers.complaint_tasks",
     ],
 )
 celery.conf.update(

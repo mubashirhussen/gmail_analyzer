@@ -27,5 +27,11 @@ async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
     await db.webhook_deliveries.create_index([("status", 1), ("next_attempt_at", 1)])
     await db.threats.create_index([("review_status", 1), ("created_at", -1)])
     await db.threats.create_index([("risk_score", -1), ("created_at", -1)])
+    await db.complaints.create_index([("user_id", 1), ("created_at", -1)])
+    await db.complaints.create_index([("user_id", 1), ("status", 1)])
+    await db.complaints.create_index([("status", 1), ("scheduled_for", 1)])
+    await db.complaint_templates.create_index([("destination", 1), ("category", 1)], unique=True)
+    await db.evidence_packs.create_index([("user_id", 1), ("generated_at", -1)])
+    await db.evidence_packs.create_index("sha256")
 
 
