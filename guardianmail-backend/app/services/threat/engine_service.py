@@ -70,8 +70,8 @@ class ThreatEngineService:
                 user_id=user_id,
                 force=force,
             )
-            headers = getattr(email, "headers", None) or []
-            attachments = getattr(email, "attachments", None) or []
+            headers = self._headers_as_pairs(email)
+            attachments = self._attachments_as_dicts(email)
             urls = self._urls_from_email(email)
             domains = sorted({registered_domain(u) or "" for u in urls if registered_domain(u)})
 
