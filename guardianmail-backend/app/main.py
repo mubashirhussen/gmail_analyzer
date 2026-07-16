@@ -16,11 +16,12 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from app.api import health as health_router
+from app.api import metrics as metrics_router
 from app.api.v1 import (admin_review, ai, analytics, attachments, audit, auth,
                         community, complaints, dashboard, devices, emails,
                         evidence, gmail, link_safety, links, notifications,
                         ocr, passcode, phishing, preferences, privacy, qr,
-                        rankings, reports, sessions, stream, threats,
+                        rankings, reports, sessions, stream, tasks, threats,
                         webhook_deliveries, webhooks)
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
