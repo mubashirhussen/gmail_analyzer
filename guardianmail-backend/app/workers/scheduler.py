@@ -50,4 +50,25 @@ BEAT_SCHEDULE = {
         "task": "complaints_platform.sweep_reminders",
         "schedule": crontab(minute="*/5"),
     },
+    # ---- Module 10 — analytics platform ----------------------------
+    "analytics-platform-daily-rollup": {
+        "task": "analytics_platform.daily_rollup",
+        "schedule": crontab(hour=2, minute=15),
+    },
+    "analytics-platform-weekly-rollup": {
+        "task": "analytics_platform.weekly_rollup",
+        "schedule": crontab(day_of_week="mon", hour=2, minute=30),
+    },
+    "analytics-platform-monthly-rollup": {
+        "task": "analytics_platform.monthly_rollup",
+        "schedule": crontab(day_of_month="1", hour=3, minute=0),
+    },
+    "analytics-platform-warm-dashboard": {
+        "task": "analytics_platform.warm_dashboard",
+        "schedule": crontab(minute="*/30"),
+    },
+    "analytics-platform-cleanup-cache": {
+        "task": "analytics_platform.cleanup_cache",
+        "schedule": crontab(hour=3, minute=45),
+    },
 }
