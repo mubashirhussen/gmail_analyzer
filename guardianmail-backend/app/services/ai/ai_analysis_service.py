@@ -79,7 +79,11 @@ class AIAnalysisService:
 
         # Prevent concurrent runs for the same report.
         lock = ai_lock_key(threat_report_id)
-        acquired = await redis_client.set_nx(lock, "1", ex=120)
+        redis = get_redis()
+        try:
+            acquired = bool(await redis.set(lock, "1", ex=120, nx=True))
+        except Exception:  # noqa: BLE001
+            acquired = False
         try:
             built = self.prompt_builder.build(threat_report)
             started_at = now_utc()
@@ -155,7 +159,10 @@ class AIAnalysisService:
             return report
         finally:
             if acquired:
-                await redis_client.delete(lock)
+                try:
+                    await redis.delete(lock)
+                except Exception:  # noqa: BLE001
+                    pass
 
     # -------------------------------------------------------------- helpers
     async def _invoke_llm(self, system: str, user: str):
