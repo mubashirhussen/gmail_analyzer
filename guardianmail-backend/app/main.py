@@ -87,9 +87,11 @@ register_exception_handlers(app)
 
 # ---- routers -------------------------------------------------------------
 app.include_router(health_router.router)
+app.include_router(metrics_router.router)
 for r in (auth, sessions, devices, passcode,
           gmail, emails, phishing, attachments, links, privacy,
           analytics, reports, ai, dashboard, community, notifications,
           qr, audit, webhooks, webhook_deliveries, rankings, preferences,
-          admin_review, stream, link_safety, complaints, evidence, threats, ocr):
+          admin_review, stream, link_safety, complaints, evidence, threats,
+          ocr, tasks):
     app.include_router(r.router, prefix="/api/v1")
