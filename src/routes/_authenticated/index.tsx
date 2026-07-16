@@ -18,6 +18,7 @@ import {
   CertInPanel, ChangePasscodeDialog, DataPrivacyPanel, HistoryPanel, RecommendationModal, SecurityTipsPanel,
   exportHistoryCSV, exportHistoryPDF, type RecommendationContext,
 } from "@/components/panels";
+import { FileComplaintPanel } from "@/components/file-complaint";
 import { extractUrls, scoreLinks, type LinkScore } from "@/lib/link-intel";
 import type { HistoryItem } from "@/lib/secure-store";
 
