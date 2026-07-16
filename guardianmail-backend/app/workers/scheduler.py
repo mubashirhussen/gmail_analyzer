@@ -45,4 +45,9 @@ BEAT_SCHEDULE = {
         "task": "analytics.daily_rollup",
         "schedule": crontab(hour=2, minute=0),
     },
+    # Module 9 — complaint reminder sweeper.
+    "complaint-platform-reminders": {
+        "task": "complaints_platform.sweep_reminders",
+        "schedule": crontab(minute="*/5"),
+    },
 }
