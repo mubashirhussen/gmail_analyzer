@@ -146,3 +146,7 @@ app.include_router(obs_router.traces_router, prefix="/api/v1")
 app.include_router(obs_router.system_router, prefix="/api/v1")
 app.include_router(obs_router.ops_alerts_router, prefix="/api/v1")
 app.include_router(obs_router.ops_incidents_router, prefix="/api/v1")
+
+# Phase 20 — Enterprise SaaS platform (/api/v1/saas/*).
+from app.api.v1 import saas as saas_router  # noqa: E402
+app.include_router(saas_router.router, prefix="/api/v1")
