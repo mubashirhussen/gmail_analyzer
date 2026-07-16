@@ -163,3 +163,17 @@ async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
     )
     await db.webhook_deliveries.create_index([("user_id", 1), ("created_at", -1)])
     await db.webhook_deliveries.create_index([("status", 1), ("next_attempt_at", 1)])
+
+    # =============================================================
+    # MODULE 6 — AI ANALYSIS ENGINE
+    # =============================================================
+    await db.ai_reports.create_index([("user_id", 1), ("created_at", -1)])
+    await db.ai_reports.create_index([("threat_report_id", 1), ("created_at", -1)])
+    await db.ai_reports.create_index([("email_id", 1), ("created_at", -1)], sparse=True)
+    await db.ai_reports.create_index([("verdict", 1), ("created_at", -1)])
+    await db.ai_reports.create_index([("prompt_hash", 1)])
+    await db.ai_prompts.create_index([("name", 1), ("version", 1)], unique=True)
+    await db.ai_prompts.create_index([("active", 1)])
+    await db.ai_decision_history.create_index([("user_id", 1), ("created_at", -1)])
+    await db.ai_decision_history.create_index([("prompt_version", 1), ("created_at", -1)])
+    await db.ai_decision_history.create_index([("model_name", 1), ("created_at", -1)])
