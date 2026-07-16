@@ -4,6 +4,11 @@ services:
     restart: unless-stopped
     volumes: [mongo-data:/data/db]
     ports: ["27017:27017"]
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
@@ -11,24 +16,37 @@ services:
     command: redis-server --save 60 1 --loglevel warning
     volumes: [redis-data:/data]
     ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
   api:
     build: .
     env_file: .env
-    depends_on: [mongo, redis]
+    depends_on:
+      mongo: {condition: service_healthy}
+      redis: {condition: service_healthy}
     ports: ["8000:8000"]
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --proxy-headers
+    volumes:
+      - ./:/srv/app
+      - ./logs:/srv/app/logs
 
   worker:
     build: .
     env_file: .env
-    depends_on: [mongo, redis]
+    depends_on:
+      mongo: {condition: service_healthy}
+      redis: {condition: service_healthy}
     command: celery -A app.workers.celery_app.celery worker -l INFO -Q default,ocr,threat,report
 
   beat:
     build: .
     env_file: .env
-    depends_on: [redis]
+    depends_on:
+      redis: {condition: service_healthy}
     command: celery -A app.workers.celery_app.celery beat -l INFO
 
   flower:
@@ -37,6 +55,13 @@ services:
     depends_on: [redis]
     ports: ["5555:5555"]
     command: celery -A app.workers.celery_app.celery flower --port=5555
+
+  nginx:
+    image: nginx:1.27-alpine
+    depends_on: [api]
+    ports: ["80:80"]
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
 
 volumes:
   mongo-data:
