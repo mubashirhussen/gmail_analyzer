@@ -45,6 +45,8 @@ celery = Celery(
         "app.workers.notification_tasks",
         "app.workers.analytics_tasks",
         "app.workers.maintenance_tasks",
+        # ---- Module 9: complaint & evidence platform ----
+        "app.workers.complaint_platform_tasks",
     ],
 )
 
