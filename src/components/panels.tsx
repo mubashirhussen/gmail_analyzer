@@ -219,20 +219,24 @@ export function CertInPanel() {
         for responding to cyber security incidents. Report phishing, fraud and malware to them.
       </p>
       <ul className="text-xs space-y-2">
-        <li className="flex items-start gap-2"><MailIcon className="h-3.5 w-3.5 mt-0.5" style={{ color: "var(--safe)" }} />
-          Phishing reports: <code className="font-mono">report@phishing.gov.in</code></li>
-        <li className="flex items-start gap-2"><MailIcon className="h-3.5 w-3.5 mt-0.5" style={{ color: "var(--safe)" }} />
-          Incidents: <code className="font-mono">incident@cert-in.org.in</code></li>
-        <li className="flex items-start gap-2"><Phone className="h-3.5 w-3.5 mt-0.5" style={{ color: "var(--safe)" }} />
-          Cyber-crime helpline: <code className="font-mono">1930</code> (24×7)</li>
         <li className="flex items-start gap-2"><Phone className="h-3.5 w-3.5 mt-0.5" style={{ color: "var(--danger)" }} />
-          CERT-In direct emergency: <a className="font-mono underline" href="tel:+911122902657">+91-11-2290-2657</a></li>
+          National cyber-crime helpline: <a className="font-mono underline" href="tel:1930">1930</a> (24×7, toll-free)</li>
+        <li className="flex items-start gap-2"><Phone className="h-3.5 w-3.5 mt-0.5" style={{ color: "var(--danger)" }} />
+          CERT-In Incident Response Helpdesk: <a className="font-mono underline" href="tel:18001114949">1800-11-4949</a> (24×7, toll-free)</li>
+        <li className="flex items-start gap-2"><MailIcon className="h-3.5 w-3.5 mt-0.5" style={{ color: "var(--safe)" }} />
+          Phishing reports: <a className="font-mono underline" href="mailto:report@phishing.gov.in">report@phishing.gov.in</a></li>
+        <li className="flex items-start gap-2"><MailIcon className="h-3.5 w-3.5 mt-0.5" style={{ color: "var(--safe)" }} />
+          Incidents: <a className="font-mono underline" href="mailto:incident@cert-in.org.in">incident@cert-in.org.in</a></li>
         <li className="flex items-start gap-2"><Globe2 className="h-3.5 w-3.5 mt-0.5" style={{ color: "var(--safe)" }} />
           File a complaint:&nbsp;
           <a className="underline" href="https://cybercrime.gov.in" target="_blank" rel="noreferrer">cybercrime.gov.in</a>
+          &nbsp;· Women / child:&nbsp;
+          <a className="underline" href="https://cybercrime.gov.in/Webform/Crime_AuthoLogin.aspx" target="_blank" rel="noreferrer">report anonymously</a>
         </li>
         <li className="flex items-start gap-2"><ExternalLink className="h-3.5 w-3.5 mt-0.5" style={{ color: "var(--safe)" }} />
           Advisories: <a className="underline" href="https://www.cert-in.org.in" target="_blank" rel="noreferrer">cert-in.org.in</a>
+          &nbsp;· Sachet (RBI):&nbsp;
+          <a className="underline" href="https://sachet.rbi.org.in" target="_blank" rel="noreferrer">sachet.rbi.org.in</a>
         </li>
       </ul>
     </div>
